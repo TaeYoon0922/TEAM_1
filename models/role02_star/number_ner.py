@@ -23,7 +23,6 @@ def detect_numbers(text: str) -> dict:
                 "end": match.end()
             })
 
-    # GENERAL_NUMBER가 다른 패턴과 중복될 수 있어서 중복 제거
     unique = []
     seen = set()
 
