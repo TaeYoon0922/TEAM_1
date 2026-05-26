@@ -62,7 +62,10 @@ def parse_sentence(text: str) -> dict:
 
         # 주어(nsubj) 추출
         # 한국어 은/는 주제어는 spaCy에서 dislocated로 태깅됨
-        if token.dep_ in ("nsubj", "nsubjpass", "dislocated"):
+        # 숫자/수치는 주어에서 제외 (NUM 품사 or 숫자로 시작하는 토큰 제외)
+        if token.dep_ in ("nsubj", "nsubjpass", "dislocated") \
+                and token.pos_ != "NUM" \
+                and not token.text[0].isdigit():
             subject = token.text
 
     # 주어 유형 분류

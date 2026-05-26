@@ -64,9 +64,17 @@ CONTRIBUTION_EXTERNAL_SUBJECT = [
 
 
 def has_number_expression(text: str) -> list:
-    """텍스트에서 수치 표현 패턴을 탐지해 매칭 결과 반환"""
-    found = []
+    """텍스트에서 수치 표현 패턴을 탐지해 매칭 결과 반환 (중복 제거)"""
+    spans = []
     for pattern in CONTRIBUTION_NUMBER_PATTERNS:
         for m in re.finditer(pattern, text):
-            found.append(m.group())
-    return found
+            spans.append((m.start(), m.end(), m.group()))
+
+    # 겹치는 span 제거 — 긴 매칭 우선
+    spans.sort(key=lambda x: (x[0], -(x[1] - x[0])))
+    result, last_end = [], -1
+    for start, end, matched in spans:
+        if start >= last_end:
+            result.append(matched)
+            last_end = end
+    return result
