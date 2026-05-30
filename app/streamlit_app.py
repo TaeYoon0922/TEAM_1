@@ -10,8 +10,13 @@ import streamlit as st
 from analyzer import AnalysisResult, analyze_cover_letter
 
 
-GOOD_METRICS = {"두괄식", "STAR"}
+GOOD_METRICS = {"질문적합도", "두괄식", "STAR"}
 METRIC_DESCRIPTIONS = {
+    "질문적합도": {
+        "summary": "답변이 질문의 핵심 의도와 조건에 맞는지 보는 지표입니다.",
+        "detail": "답변이 아무리 구체적이어도 질문과 다른 내용을 쓰면 좋은 자소서로 평가되기 어렵습니다.",
+        "check": "질문 핵심어, 질문 유형, 복합 조건이 답변에 반영됐는지 확인합니다.",
+    },
     "두괄식": {
         "summary": "핵심 결론을 앞에서 먼저 제시하는 구조입니다.",
         "detail": "좋은 자소서는 첫 문장이나 문단 앞부분에서 내가 무엇을 했고 어떤 성과를 냈는지 빠르게 보여줍니다.",
@@ -318,6 +323,8 @@ def init_state() -> None:
         st.session_state.page = "자소서 분석"
     if "cover_letter_text" not in st.session_state:
         st.session_state.cover_letter_text = ""
+    if "question_text" not in st.session_state:
+        st.session_state.question_text = ""
     if "analysis_history" not in st.session_state:
         st.session_state.analysis_history = []
 
@@ -327,6 +334,7 @@ def render_sidebar() -> None:
         st.header("자소서 분석")
         if st.button("새 분석 시작", use_container_width=True):
             st.session_state.cover_letter_text = ""
+            st.session_state.question_text = ""
             st.session_state.page = "자소서 분석"
             st.rerun()
         if st.button("저장된 분석", use_container_width=True):
@@ -350,12 +358,13 @@ def render_topbar(title: str, status: str) -> None:
 
 
 def render_analysis_page() -> None:
-    render_topbar("자소서 분석", "4개 지표 기반 피드백")
+    render_topbar("자소서 분석", "질문 적합도 포함 피드백")
 
     text = st.session_state.cover_letter_text.strip()
+    question = st.session_state.question_text.strip()
     if text:
-        result = analyze_cover_letter(text)
-        render_user_message(text)
+        result = analyze_cover_letter(text, question)
+        render_user_message(text, question)
         render_assistant_message(result)
     else:
         render_intro_message()
@@ -380,7 +389,7 @@ def render_history_page() -> None:
         return
 
     for item in reversed(history):
-        result = analyze_cover_letter(item["text"])
+        result = analyze_cover_letter(item["text"], item.get("question", ""))
         st.markdown(
             f"""
             <div class="history-card">
@@ -394,6 +403,7 @@ def render_history_page() -> None:
         with cols[0]:
             if st.button("열기", key=f'open_{item["id"]}'):
                 st.session_state.cover_letter_text = item["text"]
+                st.session_state.question_text = item.get("question", "")
                 st.session_state.page = "자소서 분석"
                 st.rerun()
         with cols[1]:
@@ -439,7 +449,7 @@ def render_intro_message() -> None:
             <div class="bubble">
                 <h1>자소서 문장을 붙여넣어 주세요.</h1>
                 <p>
-                    입력한 문장을 두괄식, STAR, 모호도, 자기중심 지표로 분석하고
+                    질문과 자소서 답변을 붙여넣으면 질문적합도, 두괄식, STAR, 모호도, 자기중심 지표로 분석하고
                     바로 고칠 수 있는 피드백으로 정리해드립니다.
                 </p>
             </div>
@@ -452,10 +462,15 @@ def render_intro_message() -> None:
 def render_input_form() -> None:
     st.markdown('<div class="prompt-shell">', unsafe_allow_html=True)
     with st.form("analysis_form", clear_on_submit=False):
+        question_text = st.text_area(
+            "질문 입력",
+            value=st.session_state.question_text,
+            placeholder="자소서 질문을 붙여넣어 주세요. 예: 지원동기와 입사 후 기여 계획을 기술해 주세요.",
+            height=92,
+        )
         user_text = st.text_area(
             "자소서 입력",
             value=st.session_state.cover_letter_text,
-            label_visibility="collapsed",
             placeholder="자소서 문장을 붙여넣고 분석하기를 눌러주세요.",
             height=155,
         )
@@ -464,19 +479,21 @@ def render_input_form() -> None:
 
     if submitted:
         cleaned = user_text.strip()
+        cleaned_question = question_text.strip()
         st.session_state.cover_letter_text = cleaned
+        st.session_state.question_text = cleaned_question
         if cleaned:
-            save_history(cleaned, analyze_cover_letter(cleaned))
+            save_history(cleaned, cleaned_question, analyze_cover_letter(cleaned, cleaned_question))
         st.rerun()
 
 
-def save_history(text: str, result: AnalysisResult) -> None:
+def save_history(text: str, question: str, result: AnalysisResult) -> None:
     preview = text.replace("\n", " ")[:40]
     if len(text) > 40:
         preview += "..."
 
     latest = st.session_state.analysis_history[-1] if st.session_state.analysis_history else None
-    if latest and latest["text"] == text:
+    if latest and latest["text"] == text and latest.get("question", "") == question:
         latest["score"] = result.overall_score
         latest["time"] = datetime.now().strftime("%H:%M")
         latest["preview"] = preview
@@ -486,6 +503,7 @@ def save_history(text: str, result: AnalysisResult) -> None:
         {
             "id": datetime.now().strftime("%Y%m%d%H%M%S%f"),
             "time": datetime.now().strftime("%H:%M"),
+            "question": question,
             "text": text,
             "score": result.overall_score,
             "preview": preview,
@@ -493,13 +511,16 @@ def save_history(text: str, result: AnalysisResult) -> None:
     )
 
 
-def render_user_message(text: str) -> None:
+def render_user_message(text: str, question: str = "") -> None:
     preview = escape(text).replace("\n", "<br>")
+    question_html = ""
+    if question:
+        question_html = f'<p><b>질문</b><br>{escape(question).replace(chr(10), "<br>")}</p><hr>'
     st.markdown(
         f"""
         <div class="message">
             <div class="avatar user-avatar">나</div>
-            <div class="bubble">{preview}</div>
+            <div class="bubble">{question_html}{preview}</div>
         </div>
         """,
         unsafe_allow_html=True,
@@ -573,6 +594,10 @@ def render_dashboard(result: AnalysisResult) -> None:
 
     summary_df = pd.DataFrame(
         [
+            {
+                "영역": "질문 적합성",
+                "점수": result.metrics["질문적합도"].score if "질문적합도" in result.metrics else None,
+            },
             {"영역": "구조", "점수": round((result.metrics["두괄식"].score + result.metrics["STAR"].score) / 2)},
             {
                 "영역": "표현 안정성",

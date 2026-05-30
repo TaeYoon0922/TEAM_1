@@ -4,6 +4,11 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List
 
+try:
+    from models.role05_match.relevance_detector import detect_answer_relevance
+except ImportError:
+    detect_answer_relevance = None
+
 
 """UI integration adapter.
 
@@ -76,8 +81,9 @@ MOCK_OTHER_WORDS = ["팀", "고객", "사용자", "동료", "조직", "회사", 
 NUMBER_PATTERN = r"\d|%|명|회|개월|년|배"
 
 
-def analyze_cover_letter(text: str) -> AnalysisResult:
+def analyze_cover_letter(text: str, question: str = "") -> AnalysisResult:
     cleaned = normalize_text(text)
+    cleaned_question = normalize_text(question)
     sentences = split_sentences(cleaned)
 
     metrics = {
@@ -89,14 +95,27 @@ def analyze_cover_letter(text: str) -> AnalysisResult:
 
     clarity_score = 100 - metrics["모호도"].score
     balance_score = 100 - metrics["자기중심"].score
-    overall_score = round(
-        (
-            metrics["두괄식"].score * 0.28
-            + metrics["STAR"].score * 0.32
-            + clarity_score * 0.22
-            + balance_score * 0.18
+
+    if cleaned_question:
+        metrics["질문적합도"] = score_question_relevance(cleaned_question, cleaned)
+        overall_score = round(
+            (
+                metrics["질문적합도"].score * 0.30
+                + metrics["두괄식"].score * 0.20
+                + metrics["STAR"].score * 0.25
+                + clarity_score * 0.15
+                + balance_score * 0.10
+            )
         )
-    )
+    else:
+        overall_score = round(
+            (
+                metrics["두괄식"].score * 0.28
+                + metrics["STAR"].score * 0.32
+                + clarity_score * 0.22
+                + balance_score * 0.18
+            )
+        )
 
     return AnalysisResult(
         metrics=metrics,
@@ -198,6 +217,22 @@ def score_self_centered(text: str) -> MetricResult:
     return MetricResult("자기중심", score, risk_level_from_score(score), feedback)
 
 
+def score_question_relevance(question: str, answer: str) -> MetricResult:
+    if detect_answer_relevance is None:
+        return MetricResult(
+            "질문적합도",
+            0,
+            "분석 불가",
+            "질문-답변 적합도 모델을 불러오지 못했습니다.",
+        )
+
+    result = detect_answer_relevance(question, answer)
+    feedback = result["summary"]
+    if result["feedback_items"]:
+        feedback = result["feedback_items"][0]
+    return MetricResult("질문적합도", result["score"], result["grade"], feedback)
+
+
 def count_keywords(text: str, keywords: List[str]) -> int:
     return sum(text.count(keyword) for keyword in keywords)
 
@@ -219,9 +254,15 @@ def risk_level_from_score(score: int) -> str:
 
 
 def build_summary(overall_score: int, metrics: Dict[str, MetricResult]) -> str:
-    weak_metric = min(["두괄식", "STAR"], key=lambda key: metrics[key].score)
+    structural_metrics = ["두괄식", "STAR"]
+    if "질문적합도" in metrics:
+        structural_metrics.insert(0, "질문적합도")
+
+    weak_metric = min(structural_metrics, key=lambda key: metrics[key].score)
     risk_metric = max(["모호도", "자기중심"], key=lambda key: metrics[key].score)
 
+    if "질문적합도" in metrics and metrics["질문적합도"].score < 50:
+        return "답변의 표현 품질과 별개로 질문에 직접 답하는 힘이 약합니다. 질문 핵심어와 요구 조건을 먼저 맞춘 뒤 구조를 다듬으세요."
     if overall_score >= 80:
         return "핵심 메시지와 근거가 잘 연결된 자소서입니다. 문장 단위의 구체성만 더 다듬으면 완성도가 높아집니다."
     if overall_score >= 60:
@@ -231,6 +272,8 @@ def build_summary(overall_score: int, metrics: Dict[str, MetricResult]) -> str:
 
 def build_strengths(metrics: Dict[str, MetricResult]) -> List[str]:
     strengths = []
+    if metrics.get("질문적합도") and metrics["질문적합도"].score >= 70:
+        strengths.append("질문 의도를 비교적 잘 받아서 답변하고 있습니다.")
     if metrics["두괄식"].score >= 70:
         strengths.append("첫 부분에서 핵심 메시지를 비교적 빠르게 제시합니다.")
     if metrics["STAR"].score >= 70:
@@ -244,6 +287,8 @@ def build_strengths(metrics: Dict[str, MetricResult]) -> List[str]:
 
 def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
     improvements = []
+    if metrics.get("질문적합도") and metrics["질문적합도"].score < 70:
+        improvements.append("질문에서 요구한 핵심어와 조건을 첫 문단에 직접 반영하세요.")
     if metrics["두괄식"].score < 70:
         improvements.append("첫 문장을 '무엇을 개선했고 어떤 결과를 냈는지'로 다시 시작하세요.")
     if metrics["STAR"].score < 70:
