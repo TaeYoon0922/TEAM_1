@@ -3,44 +3,46 @@ from __future__ import annotations
 from datetime import datetime
 from html import escape
 
-import altair as alt
-import pandas as pd
 import streamlit as st
 
 from analyzer import AnalysisResult, analyze_cover_letter
 
 
-GOOD_METRICS = {"질문적합도", "두괄식", "STAR", "모호도", "기여중심성", "문장완성도"}
 METRIC_DESCRIPTIONS = {
-    "질문적합도": {
+    "문항 적합성": {
         "summary": "답변이 질문의 핵심 의도와 조건에 맞는지 보는 지표입니다.",
         "detail": "답변이 아무리 구체적이어도 질문과 다른 내용을 쓰면 좋은 자소서로 평가되기 어렵습니다.",
         "check": "질문 핵심어, 질문 유형, 복합 조건이 답변에 반영됐는지 확인합니다.",
     },
-    "두괄식": {
-        "summary": "핵심 결론을 앞에서 먼저 제시하는 구조입니다.",
-        "detail": "좋은 자소서는 첫 문장이나 문단 앞부분에서 내가 무엇을 했고 어떤 성과를 냈는지 빠르게 보여줍니다.",
+    "핵심 주장 명확성": {
+        "summary": "핵심 결론을 앞에서 먼저 제시하는 두괄식 구조입니다.",
+        "detail": "첫 문장이나 문단 앞부분에서 무엇을 했고 어떤 성과를 냈는지 빠르게 보여주는지 봅니다.",
         "check": "첫 문장에 성과, 변화, 직무 적합성이 보이는지 확인합니다.",
     },
-    "STAR": {
-        "summary": "상황, 과제, 행동, 결과의 경험 서술 구조입니다.",
+    "경험 구체성": {
+        "summary": "상황, 과제, 행동, 결과(STAR)의 경험 서술 구조입니다.",
         "detail": "Situation, Task, Action, Result가 모두 보여야 경험이 단순 주장보다 설득력 있는 근거로 읽힙니다.",
         "check": "배경, 맡은 역할, 실제 행동, 결과가 빠지지 않았는지 확인합니다.",
     },
-    "모호도": {
-        "summary": "헤지 표현·추상어가 적을수록 높은 점수를 받는 지표입니다.",
-        "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 점수가 높습니다.",
+    "지원 적합성": {
+        "summary": "직무·전공·회사와의 연결성을 보는 지표입니다.",
+        "detail": "경험이 지원 직무/전공/회사와 연결될수록 '왜 이 사람인지'가 설득력 있게 드러납니다.",
+        "check": "지원 직무명·전공 지식·회사와의 연결 표현이 있는지 확인합니다.",
+    },
+    "표현 명료성": {
+        "summary": "모호어·추상어·상투어가 적을수록 좋은 지표입니다.",
+        "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 명료합니다.",
         "check": "열심히, 다양한, 성장 같은 추상 표현 대신 수치·행동 중심 표현이 쓰였는지 확인합니다.",
     },
-    "기여중심성": {
-        "summary": "기여·성과 중심 표현의 비율을 보는 지표입니다.",
-        "detail": "팀, 고객, 조직에 생긴 결과와 수치 중심의 서술이 많을수록 점수가 높아집니다. 자기감정·인식 위주 서술은 점수를 낮춥니다.",
-        "check": "'제가 했다' 다음에 팀·고객·조직에 어떤 변화가 생겼는지 확인합니다.",
+    "자기표현 차별성": {
+        "summary": "본인만의 경험과 관점이 드러나는지 보는 지표입니다.",
+        "detail": "제가, 저는 중심의 서술만 반복되면 팀·고객·조직에 준 영향과 본인만의 차별점이 약해 보입니다.",
+        "check": "내 행동 이후 팀, 고객, 조직에 어떤 변화가 있었는지 확인합니다.",
     },
-    "문장완성도": {
-        "summary": "문장 길이·종결어·단어 반복의 균형을 보는 지표입니다.",
-        "detail": "너무 짧은 문장, 같은 어미(습니다)의 과도한 반복, 특정 단어의 반복 사용이 많으면 점수가 낮아집니다.",
-        "check": "문장 길이가 다양하고, 같은 종결어나 단어가 지나치게 반복되지 않는지 확인합니다.",
+    "문장 완성도": {
+        "summary": "맞춤법·문장 구조·가독성을 보는 지표입니다.",
+        "detail": "한 문장에 한 메시지를 담고 길이가 적절할수록 읽기 쉽고 완성도 있게 읽힙니다.",
+        "check": "지나치게 긴 문장·복잡한 구조가 없는지 확인합니다.",
     },
 }
 
@@ -248,6 +250,50 @@ def inject_styles() -> None:
             border-radius: 999px;
         }
 
+        .ind-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            margin: 1rem 0 1.1rem;
+        }
+
+        .ind-card {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: #ffffff;
+            padding: 0.95rem 1rem;
+        }
+
+        .ind-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-weight: 800;
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .ind-level {
+            border-radius: 999px;
+            color: #ffffff;
+            padding: 0.18rem 0.55rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .ind-level.ind-na {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+
+        .ind-feedback {
+            color: #374151;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
         .chip-row {
             display: flex;
             flex-wrap: wrap;
@@ -292,15 +338,9 @@ def inject_styles() -> None:
             padding: 0.45rem 0.9rem;
         }
 
-        @media (max-width: 900px) {
-            .score-grid {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-            }
-        }
-
-        @media (max-width: 600px) {
-            .score-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+        @media (max-width: 760px) {
+            .score-grid, .ind-grid {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
             }
 
             .topbar {
@@ -400,11 +440,10 @@ def render_history_page() -> None:
         return
 
     for item in reversed(history):
-        result = analyze_cover_letter(item["text"], item.get("question", ""))
         st.markdown(
             f"""
             <div class="history-card">
-                <b>{escape(item["time"])} · {item["score"]}점</b>
+                <b>{escape(item["time"])}</b>
                 <p>{escape(item["preview"])}</p>
             </div>
             """,
@@ -419,7 +458,9 @@ def render_history_page() -> None:
                 st.rerun()
         with cols[1]:
             if st.button("결과 보기", key=f'view_{item["id"]}'):
-                render_assistant_message(result)
+                render_assistant_message(
+                    analyze_cover_letter(item["text"], item.get("question", ""))
+                )
 
     st.divider()
     if st.button("기록 지우기", use_container_width=True):
@@ -432,7 +473,7 @@ def render_metric_page() -> None:
 
     st.write("")
     st.markdown(
-        "자소서를 평가할 때 보는 네 가지 기준입니다. 각 지표는 문장의 구조와 표현 위험을 다른 관점에서 확인합니다."
+        "자소서를 평가할 때 보는 일곱 가지 기준입니다. 각 지표는 문장의 구조와 표현을 다른 관점에서 확인합니다."
     )
 
     metric_items = list(METRIC_DESCRIPTIONS.items())
@@ -447,9 +488,9 @@ def render_metric_page() -> None:
                     st.divider()
                     st.caption(info["check"])
 
-    with st.expander("점수는 어떻게 해석하나요?"):
-        st.write("두괄식·STAR·기여중심성·문장완성도는 높을수록 좋고, 모호도는 낮을수록 좋습니다.")
-        st.write("기여중심성은 ROLE04 self_detector 모델이 실제로 분석한 결과이며, 나머지 지표는 ROLE02·03 모델 연결 전 규칙 기반으로 동작합니다.")
+    with st.expander("결과는 어떻게 보나요?"):
+        st.write("점수 대신, 각 지표별로 무엇을 어떻게 고치면 좋을지 피드백만 보여줍니다.")
+        st.write("질문 유형(군집)에 따라 일부 지표는 '해당 없음'으로 빠질 수 있습니다.")
 
 
 def render_intro_message() -> None:
@@ -460,8 +501,8 @@ def render_intro_message() -> None:
             <div class="bubble">
                 <h1>자소서 문장을 붙여넣어 주세요.</h1>
                 <p>
-                    질문과 자소서 답변을 붙여넣으면 질문적합도, 두괄식, STAR, 모호도, 자기중심 지표로 분석하고
-                    바로 고칠 수 있는 피드백으로 정리해드립니다.
+                    질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성, 지원 적합성,
+                    표현 명료성, 자기표현 차별성, 문장 완성도 7가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.
                 </p>
             </div>
         </div>
@@ -494,18 +535,17 @@ def render_input_form() -> None:
         st.session_state.cover_letter_text = cleaned
         st.session_state.question_text = cleaned_question
         if cleaned:
-            save_history(cleaned, cleaned_question, analyze_cover_letter(cleaned, cleaned_question))
+            save_history(cleaned, cleaned_question)
         st.rerun()
 
 
-def save_history(text: str, question: str, result: AnalysisResult) -> None:
+def save_history(text: str, question: str) -> None:
     preview = text.replace("\n", " ")[:40]
     if len(text) > 40:
         preview += "..."
 
     latest = st.session_state.analysis_history[-1] if st.session_state.analysis_history else None
     if latest and latest["text"] == text and latest.get("question", "") == question:
-        latest["score"] = result.overall_score
         latest["time"] = datetime.now().strftime("%H:%M")
         latest["preview"] = preview
         return
@@ -516,7 +556,6 @@ def save_history(text: str, question: str, result: AnalysisResult) -> None:
             "time": datetime.now().strftime("%H:%M"),
             "question": question,
             "text": text,
-            "score": result.overall_score,
             "preview": preview,
         }
     )
@@ -544,87 +583,47 @@ def render_assistant_message(result: AnalysisResult) -> None:
         <div class="message">
             <div class="avatar assistant-avatar">AI</div>
             <div class="bubble">
-                <h1>분석 결과: {result.overall_score}점</h1>
+                <h1>피드백</h1>
                 <p>{escape(result.summary)}</p>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    st.markdown(metric_cards_html(result), unsafe_allow_html=True)
+    st.markdown(indicator_cards_html(result), unsafe_allow_html=True)
 
-    dashboard_tab, feedback_tab, sentence_tab = st.tabs(["대시보드", "개선 피드백", "문장별 코멘트"])
-    with dashboard_tab:
-        render_dashboard(result)
+    feedback_tab, sentence_tab = st.tabs(["개선 포인트", "문장별 코멘트"])
     with feedback_tab:
         render_feedback(result)
     with sentence_tab:
         render_sentence_feedback(result)
 
 
-def metric_cards_html(result: AnalysisResult) -> str:
+def indicator_cards_html(result: AnalysisResult) -> str:
+    """7지표 피드백 카드 — 점수 없이 지표명·등급·피드백만 노출."""
     cards = []
     for metric in result.metrics.values():
+        if not metric.applicable:
+            level_html = '<span class="ind-level ind-na">해당 없음</span>'
+        else:
+            level_html = f'<span class="ind-level" style="background:{level_color(metric.level)};">{escape(metric.level)}</span>'
         cards.append(
             f"""
-            <div class="score-card">
-                <div class="score-label">{escape(metric.label)} · {metric_note(metric.label)}</div>
-                <div class="score-value">{metric.score}<span style="font-size:0.9rem;">점</span></div>
-                <div class="score-level">{escape(metric.level)}</div>
-                <div class="meter"><span style="width:{metric.score}%; background:{metric_color(metric.label, metric.score)};"></span></div>
+            <div class="ind-card">
+                <div class="ind-head">{escape(metric.label)}{level_html}</div>
+                <div class="ind-feedback">{escape(metric.feedback)}</div>
             </div>
             """
         )
-    return f'<div class="score-grid">{"".join(cards)}</div>'
+    return f'<div class="ind-grid">{"".join(cards)}</div>'
 
 
-def render_dashboard(result: AnalysisResult) -> None:
-    metric_rows = []
-    for metric in result.metrics.values():
-        group = "구조 점수" if (metric.label in GOOD_METRICS or metric.label.startswith("표현 명료성")) else "위험 점수"
-        metric_rows.append({"지표": metric.label, "점수": metric.score, "구분": group})
-
-    df = pd.DataFrame(metric_rows)
-    chart = (
-        alt.Chart(df)
-        .mark_bar(cornerRadiusTopLeft=8, cornerRadiusTopRight=8)
-        .encode(
-            x=alt.X("지표:N", sort=None, axis=alt.Axis(labelAngle=0, title=None)),
-            y=alt.Y("점수:Q", scale=alt.Scale(domain=[0, 100]), axis=alt.Axis(title=None)),
-            color=alt.Color(
-                "구분:N",
-                scale=alt.Scale(domain=["구조 점수", "위험 점수"], range=["#10a37f", "#f59e0b"]),
-                legend=alt.Legend(orient="top", title=None),
-            ),
-            tooltip=["지표", "점수", "구분"],
-        )
-        .properties(height=300)
-    )
-    labels = chart.mark_text(align="center", baseline="bottom", dy=-6, fontWeight="bold").encode(text="점수:Q")
-    st.altair_chart(chart + labels, use_container_width=True)
-
-    summary_df = pd.DataFrame(
-        [
-<<<<<<< HEAD
-            {
-                "영역": "질문 적합성",
-                "점수": result.metrics["질문적합도"].score if "질문적합도" in result.metrics else None,
-            },
-            {"영역": "구조", "점수": round((result.metrics["두괄식"].score + result.metrics["STAR"].score) / 2)},
-            {
-                "영역": "표현 안정성",
-                "점수": round(
-                    (result.metrics["모호도"].score + 100 - result.metrics["자기중심"].score) / 2
-                ),
-            },
-=======
-            {"영역": "구조",     "점수": round((result.metrics["두괄식"].score + result.metrics["STAR"].score) / 2)},
-            {"영역": "표현 명확성", "점수": round((100 - result.metrics["모호도"].score + result.metrics["기여중심성"].score) / 2)},
-            {"영역": "문장 완성도", "점수": result.metrics["문장완성도"].score},
->>>>>>> 44e5d4b (feat(role04): ROLE04 모델 연동 및 신규 지표 추가 (R04-05/06/07/08/10/11/13))
-        ]
-    )
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+def level_color(level: str) -> str:
+    if level in ("우수", "낮음"):
+        return "#10a37f"
+    if level in ("보통", "주의", "분석 보류"):
+        return "#f59e0b"
+    return "#dc2626"  # 보완 필요 / 높음 / 분석 불가 등
 
 
 def render_feedback(result: AnalysisResult) -> None:
@@ -653,27 +652,6 @@ def render_sentence_feedback(result: AnalysisResult) -> None:
 def chips_html(items: list[str]) -> str:
     chips = "".join(f'<span class="chip">{escape(item)}</span>' for item in items)
     return f'<div class="chip-row">{chips}</div>'
-
-
-def metric_note(label: str) -> str:
-    if label in GOOD_METRICS or any(label.startswith(g) for g in GOOD_METRICS):
-        return "높을수록 좋음"
-    return "낮을수록 좋음"
-
-
-def metric_color(label: str, score: int) -> str:
-    if label in GOOD_METRICS or any(label.startswith(g) for g in GOOD_METRICS):
-        if score >= 75:
-            return "#10a37f"
-        if score >= 55:
-            return "#2563eb"
-        return "#dc2626"
-    # 위험 지표 (모호도): 높을수록 빨강
-    if score >= 65:
-        return "#dc2626"
-    if score >= 35:
-        return "#f59e0b"
-    return "#10a37f"
 
 
 if __name__ == "__main__":
