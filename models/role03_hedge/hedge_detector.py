@@ -26,6 +26,14 @@ FEEDBACK_MAP = {
     "생각합니다":   "→ '~입니다'로 단정. 주장은 확신 있게",
     "노력했습니다": "→ 노력의 결과물로. 예: '그 결과 ○○를 달성했습니다'",
     "성장":         "→ 무엇이 얼마나 변했는지 수치로. 예: '처리 속도 2배 향상'",
+    "노력했으며":          "→ 노력의 결과물로. 예: '그 결과 ○○를 달성했습니다'",
+    "적극적으로":          "→ 구체적 행동으로. 예: '먼저 의견을 제시하고 회의를 주도했습니다'",
+    "키울 수 있었습니다":  "→ 수치로. 예: '처리 속도가 2배 향상됐습니다'",
+    "다양한":              "→ 개수 명시. 예: '5개 프로젝트에서'",
+    "여러":                "→ 횟수 명시. 예: '3차례 반복 실험을 통해'",
+    "성장할 수 있었습니다":"→ 무엇이 얼마나 변했는지. 예: '코드 리뷰 시간 30% 단축'",
+    "이라고 생각합니다":   "→ '~입니다'로 단정. 주장은 확신 있게",
+    "하고 싶습니다":       "→ '~하겠습니다'로 의지 표현 강화",
 }
 
 COLOR_MAP = {
@@ -58,7 +66,7 @@ def detect_hedge_expressions(text: str) -> dict:
 
     return {
         "role": "ROLE_03",
-        "metric": "hedge_density",
+        "metric": "expression_clarity",
         "score": score,
         "grade": grade,
         "summary": summary,
@@ -67,6 +75,7 @@ def detect_hedge_expressions(text: str) -> dict:
         "by_category": _count_by_category(hits),
         "highlighted_html": _build_highlight(text, hits),
         "feedback_items": _build_feedback(hits),
+        "clarity_label": f"모호 표현 {len(hits)}개 발견",
     }
 
 
@@ -103,7 +112,7 @@ def _calc_score(text: str, hits: list) -> int:
     token_count = max(len(text.split()), 1)
     weighted_sum = sum(h["weight"] for h in hits)
     weighted_density = weighted_sum / token_count
-    score = max(0, 100 - round(weighted_density * 40))
+    score = max(0, min(100, round(100 - (weighted_density * 150))))
     return score
 
 

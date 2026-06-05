@@ -4,14 +4,17 @@ import re
 from dataclasses import dataclass
 from typing import Dict, List
 
+try:
+    import sys, os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'models', 'role03_hedge'))
+    from hedge_detector import detect_hedge_expressions
+except ImportError:
+    detect_hedge_expressions = None
 
-"""UI integration adapter.
-
-This module returns temporary fallback scores for UI development.
-The final implementation can keep the same return shape and replace the
-scoring internals with ROLE02, ROLE03, and ROLE04 model outputs.
-"""
-
+try:
+    from models.role05_match.relevance_detector import detect_answer_relevance
+except ImportError:
+    detect_answer_relevance = None
 
 @dataclass
 class MetricResult:
@@ -31,23 +34,6 @@ class AnalysisResult:
     sentence_feedback: List[Dict[str, str]]
 
 
-MOCK_VAGUE_WORDS = [
-    "열심히",
-    "최선을",
-    "많이",
-    "다양한",
-    "여러",
-    "좋은",
-    "성장",
-    "노력",
-    "책임감",
-    "소통",
-    "도전",
-    "꼼꼼",
-    "성실",
-    "적극",
-    "최대한",
-]
 
 MOCK_FIRST_SENTENCE_SIGNALS = [
     "결과",
@@ -76,8 +62,9 @@ MOCK_OTHER_WORDS = ["팀", "고객", "사용자", "동료", "조직", "회사", 
 NUMBER_PATTERN = r"\d|%|명|회|개월|년|배"
 
 
-def analyze_cover_letter(text: str) -> AnalysisResult:
+def analyze_cover_letter(text: str, question: str = "") -> AnalysisResult:
     cleaned = normalize_text(text)
+    cleaned_question = normalize_text(question)
     sentences = split_sentences(cleaned)
 
     metrics = {
@@ -87,16 +74,29 @@ def analyze_cover_letter(text: str) -> AnalysisResult:
         "자기중심": score_self_centered(cleaned),
     }
 
-    clarity_score = 100 - metrics["모호도"].score
+    clarity_score = metrics["모호도"].score
     balance_score = 100 - metrics["자기중심"].score
-    overall_score = round(
-        (
-            metrics["두괄식"].score * 0.28
-            + metrics["STAR"].score * 0.32
-            + clarity_score * 0.22
-            + balance_score * 0.18
+
+    if cleaned_question:
+        metrics["질문적합도"] = score_question_relevance(cleaned_question, cleaned)
+        overall_score = round(
+            (
+                metrics["질문적합도"].score * 0.30
+                + metrics["두괄식"].score * 0.20
+                + metrics["STAR"].score * 0.25
+                + clarity_score * 0.15
+                + balance_score * 0.10
+            )
         )
-    )
+    else:
+        overall_score = round(
+            (
+                metrics["두괄식"].score * 0.28
+                + metrics["STAR"].score * 0.32
+                + clarity_score * 0.22
+                + balance_score * 0.18
+            )
+        )
 
     return AnalysisResult(
         metrics=metrics,
@@ -166,21 +166,25 @@ def score_star_structure(text: str) -> MetricResult:
 
 
 def score_ambiguity(text: str) -> MetricResult:
-    vague_count = count_keywords(text, MOCK_VAGUE_WORDS)
-    number_count = len(re.findall(NUMBER_PATTERN, text))
-    sentence_count = max(len(split_sentences(text)), 1)
+    if detect_hedge_expressions is None:
+        return MetricResult("표현 명료성", 50, "보통", "hedge_detector 연결 실패.")
 
-    score = vague_count * 9 - number_count * 5
-    if vague_count / sentence_count >= 1:
-        score += 18
+    result = detect_hedge_expressions(text)
+    score     = result["score"]
+    hit_count = result["hit_count"]
+    grade     = result["grade"]
+    feedback  = result["summary"]
 
-    score = clamp(score)
-    feedback = "추상 표현이 적고 구체성이 비교적 좋습니다."
-    if score >= 45:
-        feedback = "추상적인 표현이 많습니다. 수치, 기간, 대상, 행동 단위로 바꾸면 설득력이 올라갑니다."
+    if result["feedback_items"]:
+        top = result["feedback_items"][0]
+        feedback += f" (예: '{top['original']}' {top['suggestion']})"
 
-    return MetricResult("모호도", score, risk_level_from_score(score), feedback)
-
+    return MetricResult(
+        label    = f"표현 명료성 — 모호 표현 {hit_count}개 발견",
+        score    = score,
+        level    = grade,
+        feedback = feedback,
+    )
 
 def score_self_centered(text: str) -> MetricResult:
     self_count = count_keywords(text, MOCK_SELF_WORDS)
@@ -196,6 +200,22 @@ def score_self_centered(text: str) -> MetricResult:
         feedback = "자기 서술 비중이 높습니다. 팀, 고객, 조직에 준 영향을 함께 적어 균형을 맞추세요."
 
     return MetricResult("자기중심", score, risk_level_from_score(score), feedback)
+
+
+def score_question_relevance(question: str, answer: str) -> MetricResult:
+    if detect_answer_relevance is None:
+        return MetricResult(
+            "질문적합도",
+            0,
+            "분석 불가",
+            "질문-답변 적합도 모델을 불러오지 못했습니다.",
+        )
+
+    result = detect_answer_relevance(question, answer)
+    feedback = result["summary"]
+    if result["feedback_items"]:
+        feedback = result["feedback_items"][0]
+    return MetricResult("질문적합도", result["score"], result["grade"], feedback)
 
 
 def count_keywords(text: str, keywords: List[str]) -> int:
@@ -219,9 +239,15 @@ def risk_level_from_score(score: int) -> str:
 
 
 def build_summary(overall_score: int, metrics: Dict[str, MetricResult]) -> str:
-    weak_metric = min(["두괄식", "STAR"], key=lambda key: metrics[key].score)
+    structural_metrics = ["두괄식", "STAR"]
+    if "질문적합도" in metrics:
+        structural_metrics.insert(0, "질문적합도")
+
+    weak_metric = min(structural_metrics, key=lambda key: metrics[key].score)
     risk_metric = max(["모호도", "자기중심"], key=lambda key: metrics[key].score)
 
+    if "질문적합도" in metrics and metrics["질문적합도"].score < 50:
+        return "답변의 표현 품질과 별개로 질문에 직접 답하는 힘이 약합니다. 질문 핵심어와 요구 조건을 먼저 맞춘 뒤 구조를 다듬으세요."
     if overall_score >= 80:
         return "핵심 메시지와 근거가 잘 연결된 자소서입니다. 문장 단위의 구체성만 더 다듬으면 완성도가 높아집니다."
     if overall_score >= 60:
@@ -231,11 +257,13 @@ def build_summary(overall_score: int, metrics: Dict[str, MetricResult]) -> str:
 
 def build_strengths(metrics: Dict[str, MetricResult]) -> List[str]:
     strengths = []
+    if metrics.get("질문적합도") and metrics["질문적합도"].score >= 70:
+        strengths.append("질문 의도를 비교적 잘 받아서 답변하고 있습니다.")
     if metrics["두괄식"].score >= 70:
         strengths.append("첫 부분에서 핵심 메시지를 비교적 빠르게 제시합니다.")
     if metrics["STAR"].score >= 70:
         strengths.append("경험을 상황, 행동, 결과 흐름으로 설명하려는 구조가 보입니다.")
-    if metrics["모호도"].score <= 35:
+    if metrics["모호도"].score >= 70:
         strengths.append("추상 표현이 과하지 않아 문장이 비교적 명확합니다.")
     if metrics["자기중심"].score <= 35:
         strengths.append("개인 중심 서술과 외부 영향 서술의 균형이 좋습니다.")
@@ -244,11 +272,13 @@ def build_strengths(metrics: Dict[str, MetricResult]) -> List[str]:
 
 def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
     improvements = []
+    if metrics.get("질문적합도") and metrics["질문적합도"].score < 70:
+        improvements.append("질문에서 요구한 핵심어와 조건을 첫 문단에 직접 반영하세요.")
     if metrics["두괄식"].score < 70:
         improvements.append("첫 문장을 '무엇을 개선했고 어떤 결과를 냈는지'로 다시 시작하세요.")
     if metrics["STAR"].score < 70:
         improvements.append("상황-S, 과제-T, 행동-A, 결과-R가 각각 보이도록 문단을 재배치하세요.")
-    if metrics["모호도"].score > 35:
+    if metrics["모호도"].score < 70:
         improvements.append("'열심히', '다양한', '성장' 같은 표현을 숫자, 기간, 대상, 행동으로 바꾸세요.")
     if metrics["자기중심"].score > 35:
         improvements.append("'제가 했다' 다음에 팀, 고객, 조직에 생긴 변화를 한 문장 추가하세요.")
@@ -258,7 +288,8 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
-        vague_hits = [word for word in MOCK_VAGUE_WORDS if word in sentence]
+        fallback_words = ["열심히", "최선을", "다양한", "여러", "노력", "책임감", "소통", "성장"]
+        vague_hits = [word for word in fallback_words if word in sentence]
         has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
         if vague_hits and not has_number:
