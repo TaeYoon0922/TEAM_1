@@ -336,13 +336,13 @@ def render_sidebar() -> None:
             st.session_state.cover_letter_text = ""
             st.session_state.question_text = ""
             st.session_state.page = "자소서 분석"
-            st.experimental_rerun()
+            st.rerun()
         if st.button("저장된 분석", use_container_width=True):
             st.session_state.page = "저장된 분석"
-            st.experimental_rerun()
+            st.rerun()
         if st.button("분석 지표", use_container_width=True):
             st.session_state.page = "분석 지표"
-            st.experimental_rerun()
+            st.rerun()
 
 
 def render_topbar(title: str, status: str) -> None:
@@ -405,7 +405,7 @@ def render_history_page() -> None:
                 st.session_state.cover_letter_text = item["text"]
                 st.session_state.question_text = item.get("question", "")
                 st.session_state.page = "자소서 분석"
-                st.experimental_rerun()
+                st.rerun()
         with cols[1]:
             if st.button("결과 보기", key=f'view_{item["id"]}'):
                 render_assistant_message(result)
@@ -413,7 +413,7 @@ def render_history_page() -> None:
     st.divider()
     if st.button("기록 지우기", use_container_width=True):
         st.session_state.analysis_history = []
-        st.experimental_rerun()
+        st.rerun()
 
 
 def render_metric_page() -> None:
@@ -484,7 +484,7 @@ def render_input_form() -> None:
         st.session_state.question_text = cleaned_question
         if cleaned:
             save_history(cleaned, cleaned_question, analyze_cover_letter(cleaned, cleaned_question))
-        st.experimental_rerun()
+        st.rerun()
 
 
 def save_history(text: str, question: str, result: AnalysisResult) -> None:
