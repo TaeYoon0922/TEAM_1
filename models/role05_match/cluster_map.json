@@ -1,0 +1,128 @@
+{
+  "cluster_0": {
+    "name": "군집0_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "입사 후 포부와 희망업무.",
+      "입사 후 포부에 대하여 (800바이트)",
+      "입사 후 포부(Vision)에 대하여. (800 byte)"
+    ]
+  },
+  "cluster_1": {
+    "name": "군집1_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "고객에게 가장 맞는 신기술 서비스를 전달하는 곳",
+      "업무/과제를 수행중에 발생한 문제상황에 대한내용 /가장 우려부분과 극복방법",
+      "살면서 가장 힘들었을 때는 언제인가요? (1000자 이내)"
+    ]
+  },
+  "cluster_2": {
+    "name": "군집2_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "가족소개 및 성장과정 & 본인 성격의 장단점",
+      "성장과정 및 성격의 장단점 [2000자 이내]",
+      "성장과정 및 성격 장단점 (1200 Byte)"
+    ]
+  },
+  "cluster_3": {
+    "name": "군집3_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "본인이 생각하는 중요한 마케팅 트렌드 및 마케팅 관련 기술(Martech)은 무엇이며 그렇게 생각한 이유를 서술하십시오. 그리고 본인이 마케팅 기획자라면 위에서 서술한 트렌드와 기술을 적용해 어떤 마케팅을 하고 싶은지 구체적으로 기술해 주십시오.",
+      "[공단인재] 공단에서 지속 필요로 하는 인재는 크게 ‘미래사업 추진형’ 인재와 ‘조직가치 창출형’ 인재로 구분하고 있습니다. 공단 수행 보험사업 직무분야에 비추어 지원자께서 생각하는 ‘미래사업 추진형’ 인재와 ‘조직가치 창출형’ 인재는 각각 어떠한 특성을 갖는 인재인지 설명하여 주시고 공단 입사 후 이 두가지 인재유형 중 본인이 지향하고자하는 인재유형과 그 이유에 대해서도 구체적으로 설명해 주십시오.",
+      "SH공사 직원으로서 가져야 할 사회적 책임은 어떤 것이 있으며, 그 이유는 무엇인지 구체적으로 설명하시오. 그리고, 입사 후 본인이 그 사회적 책임을 어떻게 수행할 것인지에 대해 기술하시오."
+    ]
+  },
+  "cluster_4": {
+    "name": "군집4_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "창의적인 시도 경험",
+      "개선 경험 (최소 300자)",
+      "받고싶은 질문 - 말하고 싶은 경험"
+    ]
+  },
+  "cluster_5": {
+    "name": "군집5_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "전문분야 및 보유기술을 100자 이내로 요약하여 주시기 바랍니다. - 지원(희망)분야 관련 핵심기술 및 보유역량 위주로 작성하시기 바랍니다.",
+      "본인의 고객이라면 누구를 말하고 고객만족을 위해 어떻게 행동하는지를 기술해 주시기 바랍니다.",
+      "(논문요약)자신의 최종학력 논문 혹은 가장 성공적인 발표(제출) 자료를 요약해 주시기 바랍니다."
+    ]
+  },
+  "cluster_6": {
+    "name": "군집6_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "채용정보를 알게 된 동기",
+      "입사지원 동기 / 700",
+      "GS E&R에 지원하게 된 동기와 해당 직무에 지원한 동기에 대하여 기술하여 주십시오"
+    ]
+  },
+  "cluster_7": {
+    "name": "군집7_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "지원동기 (600자 이내)",
+      "지원동기(직무/회사)",
+      "지원동기(희망업무 및 장래포부)"
+    ]
+  },
+  "cluster_8": {
+    "name": "군집8_이름미정",
+    "models": [
+      "star",
+      "hedge"
+    ],
+    "star_required": true,
+    "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+    "representative_questions": [
+      "한화호텔&리조트FC 부문 인사 직무 서류합격 자소서",
+      "마케팅 직무를 위해 준비되어 있는 것",
+      "지원하신회사, 직무, 근무지에관련하여특별히희망하는점이있으면알려주시고, 회사에서이루고싶은자신의포부를밝혀주십시오."
+    ]
+  }
+}
