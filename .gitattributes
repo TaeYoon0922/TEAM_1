@@ -1,0 +1,16 @@
+# 모든 텍스트 파일 — 저장소는 LF, 체크아웃은 OS 기본값
+* text=auto
+
+# Python / 데이터 파일은 LF 고정
+*.py   text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf
+*.txt  text eol=lf
+*.md   text eol=lf
+*.ipynb text eol=lf
+
+# 바이너리 — 변환 없음
+*.pkl  binary
+*.npy  binary
+*.png  binary
+*.jpg  binary
