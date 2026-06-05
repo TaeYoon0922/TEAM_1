@@ -288,18 +288,38 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
-        fallback_words = ["열심히", "최선을", "다양한", "여러", "노력", "책임감", "소통", "성장"]
-        vague_hits = [word for word in fallback_words if word in sentence]
         has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
-        if vague_hits and not has_number:
-            comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
-        elif index == 1 and not any(signal in sentence for signal in MOCK_FIRST_SENTENCE_SIGNALS):
-            comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
-        elif has_number:
-            comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
+        # hedge_detector로 문장별 분석
+        if detect_hedge_expressions is not None:
+            result = detect_hedge_expressions(sentence)
+            hits = result["hits"]
+            feedback_items = result["feedback_items"]
+
+            if feedback_items:
+                # 표현별 개선 제안 합치기
+                suggestions = []
+                for fb in feedback_items:
+                    suggestions.append(f"'{fb['original']}' {fb['suggestion']}")
+                comment = " / ".join(suggestions)
+
+            elif has_number:
+                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
+            elif index == 1 and not any(s in sentence for s in MOCK_FIRST_SENTENCE_SIGNALS):
+                comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
+            else:
+                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+
         else:
-            comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+            # fallback
+            fallback_words = ["열심히", "최선을", "다양한", "여러", "노력", "책임감", "소통", "성장"]
+            vague_hits = [w for w in fallback_words if w in sentence]
+            if vague_hits and not has_number:
+                comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
+            elif has_number:
+                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
+            else:
+                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
 
         feedback.append({"sentence": sentence, "comment": comment})
     return feedback
