@@ -10,7 +10,7 @@ import streamlit as st
 from analyzer import AnalysisResult, analyze_cover_letter
 
 
-GOOD_METRICS = {"질문적합도", "두괄식", "STAR","모호도","표현 명료성"}
+GOOD_METRICS = {"질문적합도", "두괄식", "STAR", "모호도", "기여중심성", "문장완성도"}
 METRIC_DESCRIPTIONS = {
     "질문적합도": {
         "summary": "답변이 질문의 핵심 의도와 조건에 맞는지 보는 지표입니다.",
@@ -32,10 +32,15 @@ METRIC_DESCRIPTIONS = {
         "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 점수가 높습니다.",
         "check": "열심히, 다양한, 성장 같은 추상 표현 대신 수치·행동 중심 표현이 쓰였는지 확인합니다.",
     },
-    "자기중심": {
-        "summary": "나 중심 표현이 과한지 보는 지표입니다.",
-        "detail": "제가, 저는 중심의 서술만 반복되면 팀, 고객, 조직에 준 영향이 약해 보일 수 있습니다.",
-        "check": "내 행동 이후 팀, 고객, 조직에 어떤 변화가 있었는지 확인합니다.",
+    "기여중심성": {
+        "summary": "기여·성과 중심 표현의 비율을 보는 지표입니다.",
+        "detail": "팀, 고객, 조직에 생긴 결과와 수치 중심의 서술이 많을수록 점수가 높아집니다. 자기감정·인식 위주 서술은 점수를 낮춥니다.",
+        "check": "'제가 했다' 다음에 팀·고객·조직에 어떤 변화가 생겼는지 확인합니다.",
+    },
+    "문장완성도": {
+        "summary": "문장 길이·종결어·단어 반복의 균형을 보는 지표입니다.",
+        "detail": "너무 짧은 문장, 같은 어미(습니다)의 과도한 반복, 특정 단어의 반복 사용이 많으면 점수가 낮아집니다.",
+        "check": "문장 길이가 다양하고, 같은 종결어나 단어가 지나치게 반복되지 않는지 확인합니다.",
     },
 }
 
@@ -192,7 +197,7 @@ def inject_styles() -> None:
 
         .score-grid {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(5, minmax(0, 1fr));
             gap: 0.75rem;
             margin: 1rem 0 1.1rem;
         }
@@ -287,7 +292,13 @@ def inject_styles() -> None:
             padding: 0.45rem 0.9rem;
         }
 
-        @media (max-width: 760px) {
+        @media (max-width: 900px) {
+            .score-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 600px) {
             .score-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -437,8 +448,8 @@ def render_metric_page() -> None:
                     st.caption(info["check"])
 
     with st.expander("점수는 어떻게 해석하나요?"):
-        st.write("두괄식과 STAR는 높을수록 좋고, 모호도와 자기중심은 낮을수록 좋습니다.")
-        st.write("현재 화면은 UI와 통합 흐름을 확인하기 위한 형태이며, 최종 모델 출력이 들어오면 같은 화면에 연결하면 됩니다.")
+        st.write("두괄식·STAR·기여중심성·문장완성도는 높을수록 좋고, 모호도는 낮을수록 좋습니다.")
+        st.write("기여중심성은 ROLE04 self_detector 모델이 실제로 분석한 결과이며, 나머지 지표는 ROLE02·03 모델 연결 전 규칙 기반으로 동작합니다.")
 
 
 def render_intro_message() -> None:
@@ -594,6 +605,7 @@ def render_dashboard(result: AnalysisResult) -> None:
 
     summary_df = pd.DataFrame(
         [
+<<<<<<< HEAD
             {
                 "영역": "질문 적합성",
                 "점수": result.metrics["질문적합도"].score if "질문적합도" in result.metrics else None,
@@ -605,6 +617,11 @@ def render_dashboard(result: AnalysisResult) -> None:
                     (result.metrics["모호도"].score + 100 - result.metrics["자기중심"].score) / 2
                 ),
             },
+=======
+            {"영역": "구조",     "점수": round((result.metrics["두괄식"].score + result.metrics["STAR"].score) / 2)},
+            {"영역": "표현 명확성", "점수": round((100 - result.metrics["모호도"].score + result.metrics["기여중심성"].score) / 2)},
+            {"영역": "문장 완성도", "점수": result.metrics["문장완성도"].score},
+>>>>>>> 44e5d4b (feat(role04): ROLE04 모델 연동 및 신규 지표 추가 (R04-05/06/07/08/10/11/13))
         ]
     )
     st.dataframe(summary_df, use_container_width=True, hide_index=True)
@@ -651,7 +668,7 @@ def metric_color(label: str, score: int) -> str:
         if score >= 55:
             return "#2563eb"
         return "#dc2626"
-
+    # 위험 지표 (모호도): 높을수록 빨강
     if score >= 65:
         return "#dc2626"
     if score >= 35:
