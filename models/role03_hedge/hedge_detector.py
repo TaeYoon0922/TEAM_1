@@ -112,7 +112,7 @@ def _calc_score(text: str, hits: list) -> int:
     token_count = max(len(text.split()), 1)
     weighted_sum = sum(h["weight"] for h in hits)
     weighted_density = weighted_sum / token_count
-    score = max(0, min(100, round(100 - (weighted_density * 40))))
+    score = max(0, min(100, round(100 - (weighted_density * 150))))
     return score
 
 
