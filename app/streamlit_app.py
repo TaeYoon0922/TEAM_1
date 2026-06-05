@@ -10,7 +10,7 @@ import streamlit as st
 from analyzer import AnalysisResult, analyze_cover_letter
 
 
-GOOD_METRICS = {"질문적합도", "두괄식", "STAR"}
+GOOD_METRICS = {"질문적합도", "두괄식", "STAR","모호도","표현 명료성"}
 METRIC_DESCRIPTIONS = {
     "질문적합도": {
         "summary": "답변이 질문의 핵심 의도와 조건에 맞는지 보는 지표입니다.",
@@ -28,9 +28,9 @@ METRIC_DESCRIPTIONS = {
         "check": "배경, 맡은 역할, 실제 행동, 결과가 빠지지 않았는지 확인합니다.",
     },
     "모호도": {
-        "summary": "추상적이고 두루뭉술한 표현의 정도입니다.",
-        "detail": "열심히, 다양하게, 성장 같은 표현이 많고 수치, 기간, 대상, 행동이 부족하면 모호도가 높아집니다.",
-        "check": "추상어를 숫자, 기간, 대상, 행동으로 바꿀 수 있는지 확인합니다.",
+        "summary": "헤지 표현·추상어가 적을수록 높은 점수를 받는 지표입니다.",
+        "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 점수가 높습니다.",
+        "check": "열심히, 다양한, 성장 같은 추상 표현 대신 수치·행동 중심 표현이 쓰였는지 확인합니다.",
     },
     "자기중심": {
         "summary": "나 중심 표현이 과한지 보는 지표입니다.",
@@ -429,7 +429,7 @@ def render_metric_page() -> None:
         cols = st.columns(2, gap="large")
         for col, (metric, info) in zip(cols, metric_items[row_start : row_start + 2]):
             with col:
-                with st.container(border=True):
+                with st.container():
                     st.subheader(metric)
                     st.markdown(f"**{info['summary']}**")
                     st.write(info["detail"])
@@ -535,12 +535,12 @@ def render_assistant_message(result: AnalysisResult) -> None:
             <div class="bubble">
                 <h1>분석 결과: {result.overall_score}점</h1>
                 <p>{escape(result.summary)}</p>
-                {metric_cards_html(result)}
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    st.markdown(metric_cards_html(result), unsafe_allow_html=True)
 
     dashboard_tab, feedback_tab, sentence_tab = st.tabs(["대시보드", "개선 피드백", "문장별 코멘트"])
     with dashboard_tab:
@@ -570,7 +570,7 @@ def metric_cards_html(result: AnalysisResult) -> str:
 def render_dashboard(result: AnalysisResult) -> None:
     metric_rows = []
     for metric in result.metrics.values():
-        group = "구조 점수" if metric.label in GOOD_METRICS else "위험 점수"
+        group = "구조 점수" if (metric.label in GOOD_METRICS or metric.label.startswith("표현 명료성")) else "위험 점수"
         metric_rows.append({"지표": metric.label, "점수": metric.score, "구분": group})
 
     df = pd.DataFrame(metric_rows)
@@ -602,7 +602,7 @@ def render_dashboard(result: AnalysisResult) -> None:
             {
                 "영역": "표현 안정성",
                 "점수": round(
-                    (100 - result.metrics["모호도"].score + 100 - result.metrics["자기중심"].score) / 2
+                    (result.metrics["모호도"].score + 100 - result.metrics["자기중심"].score) / 2
                 ),
             },
         ]
@@ -639,13 +639,13 @@ def chips_html(items: list[str]) -> str:
 
 
 def metric_note(label: str) -> str:
-    if label in GOOD_METRICS:
+    if label in GOOD_METRICS or any(label.startswith(g) for g in GOOD_METRICS):
         return "높을수록 좋음"
     return "낮을수록 좋음"
 
 
 def metric_color(label: str, score: int) -> str:
-    if label in GOOD_METRICS:
+    if label in GOOD_METRICS or any(label.startswith(g) for g in GOOD_METRICS):
         if score >= 75:
             return "#10a37f"
         if score >= 55:

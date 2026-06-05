@@ -5,18 +5,16 @@ from dataclasses import dataclass
 from typing import Dict, List
 
 try:
+    import sys, os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'models', 'role03_hedge'))
+    from hedge_detector import detect_hedge_expressions
+except ImportError:
+    detect_hedge_expressions = None
+
+try:
     from models.role05_match.relevance_detector import detect_answer_relevance
 except ImportError:
     detect_answer_relevance = None
-
-
-"""UI integration adapter.
-
-This module returns temporary fallback scores for UI development.
-The final implementation can keep the same return shape and replace the
-scoring internals with ROLE02, ROLE03, and ROLE04 model outputs.
-"""
-
 
 @dataclass
 class MetricResult:
@@ -36,23 +34,6 @@ class AnalysisResult:
     sentence_feedback: List[Dict[str, str]]
 
 
-MOCK_VAGUE_WORDS = [
-    "열심히",
-    "최선을",
-    "많이",
-    "다양한",
-    "여러",
-    "좋은",
-    "성장",
-    "노력",
-    "책임감",
-    "소통",
-    "도전",
-    "꼼꼼",
-    "성실",
-    "적극",
-    "최대한",
-]
 
 MOCK_FIRST_SENTENCE_SIGNALS = [
     "결과",
@@ -93,7 +74,7 @@ def analyze_cover_letter(text: str, question: str = "") -> AnalysisResult:
         "자기중심": score_self_centered(cleaned),
     }
 
-    clarity_score = 100 - metrics["모호도"].score
+    clarity_score = metrics["모호도"].score
     balance_score = 100 - metrics["자기중심"].score
 
     if cleaned_question:
@@ -185,21 +166,25 @@ def score_star_structure(text: str) -> MetricResult:
 
 
 def score_ambiguity(text: str) -> MetricResult:
-    vague_count = count_keywords(text, MOCK_VAGUE_WORDS)
-    number_count = len(re.findall(NUMBER_PATTERN, text))
-    sentence_count = max(len(split_sentences(text)), 1)
+    if detect_hedge_expressions is None:
+        return MetricResult("표현 명료성", 50, "보통", "hedge_detector 연결 실패.")
 
-    score = vague_count * 9 - number_count * 5
-    if vague_count / sentence_count >= 1:
-        score += 18
+    result = detect_hedge_expressions(text)
+    score     = result["score"]
+    hit_count = result["hit_count"]
+    grade     = result["grade"]
+    feedback  = result["summary"]
 
-    score = clamp(score)
-    feedback = "추상 표현이 적고 구체성이 비교적 좋습니다."
-    if score >= 45:
-        feedback = "추상적인 표현이 많습니다. 수치, 기간, 대상, 행동 단위로 바꾸면 설득력이 올라갑니다."
+    if result["feedback_items"]:
+        top = result["feedback_items"][0]
+        feedback += f" (예: '{top['original']}' {top['suggestion']})"
 
-    return MetricResult("모호도", score, risk_level_from_score(score), feedback)
-
+    return MetricResult(
+        label    = f"표현 명료성 — 모호 표현 {hit_count}개 발견",
+        score    = score,
+        level    = grade,
+        feedback = feedback,
+    )
 
 def score_self_centered(text: str) -> MetricResult:
     self_count = count_keywords(text, MOCK_SELF_WORDS)
@@ -278,7 +263,7 @@ def build_strengths(metrics: Dict[str, MetricResult]) -> List[str]:
         strengths.append("첫 부분에서 핵심 메시지를 비교적 빠르게 제시합니다.")
     if metrics["STAR"].score >= 70:
         strengths.append("경험을 상황, 행동, 결과 흐름으로 설명하려는 구조가 보입니다.")
-    if metrics["모호도"].score <= 35:
+    if metrics["모호도"].score >= 70:
         strengths.append("추상 표현이 과하지 않아 문장이 비교적 명확합니다.")
     if metrics["자기중심"].score <= 35:
         strengths.append("개인 중심 서술과 외부 영향 서술의 균형이 좋습니다.")
@@ -293,7 +278,7 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
         improvements.append("첫 문장을 '무엇을 개선했고 어떤 결과를 냈는지'로 다시 시작하세요.")
     if metrics["STAR"].score < 70:
         improvements.append("상황-S, 과제-T, 행동-A, 결과-R가 각각 보이도록 문단을 재배치하세요.")
-    if metrics["모호도"].score > 35:
+    if metrics["모호도"].score < 70:
         improvements.append("'열심히', '다양한', '성장' 같은 표현을 숫자, 기간, 대상, 행동으로 바꾸세요.")
     if metrics["자기중심"].score > 35:
         improvements.append("'제가 했다' 다음에 팀, 고객, 조직에 생긴 변화를 한 문장 추가하세요.")
@@ -303,7 +288,8 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
-        vague_hits = [word for word in MOCK_VAGUE_WORDS if word in sentence]
+        fallback_words = ["열심히", "최선을", "다양한", "여러", "노력", "책임감", "소통", "성장"]
+        vague_hits = [word for word in fallback_words if word in sentence]
         has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
         if vague_hits and not has_number:
