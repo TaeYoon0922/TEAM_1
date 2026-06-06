@@ -312,17 +312,46 @@ def score_self_centered(text: str) -> MetricResult:
 
 # ── ROLE05 영역 ──────────────────────────────────────────────
 
+def _semantic_relevance(question: str, answer: str):
+    """ko-sroberta 코사인(질문↔답변) 0~100. 군집화용 모델 재사용. 실패 시 None."""
+    try:
+        from models.role05_match.question_clusterer import get_sbert_model
+        from sklearn.metrics.pairwise import cosine_similarity
+        emb = get_sbert_model().encode([question, answer])
+        cos = float(cosine_similarity([emb[0]], [emb[1]])[0][0])
+        return clamp(round(cos * 100))
+    except Exception:
+        return None
+
+
+def _relevance_level(score: int) -> str:
+    if score >= 55:
+        return "우수"
+    if score >= 25:
+        return "보통"
+    return "위험"
+
+
 def score_question_relevance(question: str, answer: str) -> MetricResult:
     if detect_answer_relevance is None:
         return MetricResult(
-            "문항 적합성", 0, "분석 불가",
-            "질문-답변 적합도 모델을 불러오지 못했습니다.",
+            "문항 적합성", 0, "미연결",
+            "질문-답변 적합도 모델을 불러오지 못했습니다.", applicable=False,
         )
     result = detect_answer_relevance(question, answer)
+    kw_score = result["score"]
+
+    # 하이브리드: 키워드 정밀도 + SBERT 의미 재현율 (SBERT 불가 시 키워드만)
+    sem = _semantic_relevance(question, answer)
+    score = clamp(round(0.4 * kw_score + 0.6 * sem)) if sem is not None else kw_score
+
     feedback = result["summary"]
     if result["feedback_items"]:
         feedback = result["feedback_items"][0]
-    return MetricResult("문항 적합성", result["score"], result["grade"], feedback)
+    return MetricResult(
+        "문항 적합성", score, _relevance_level(score), feedback,
+        details={"keyword": kw_score, "semantic": sem},
+    )
 
 
 # ── 공통 유틸 ────────────────────────────────────────────────
