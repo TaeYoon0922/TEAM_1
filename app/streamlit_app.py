@@ -604,7 +604,9 @@ def indicator_cards_html(result: AnalysisResult) -> str:
     cards = []
     for metric in result.metrics.values():
         if not metric.applicable:
-            level_html = '<span class="ind-level ind-na">해당 없음</span>'
+            # 미연결 / 분석 보류 / 해당 없음 등 실제 상태를 그대로 노출(회색)
+            label_txt = escape(metric.level) if metric.level else "해당 없음"
+            level_html = f'<span class="ind-level ind-na">{label_txt}</span>'
         else:
             level_html = f'<span class="ind-level" style="background:{level_color(metric.level)};">{escape(metric.level)}</span>'
         cards.append(

@@ -226,31 +226,29 @@ def score_core_claim_clarity(text: str, sentences: List[str]) -> MetricResult:
 
 
 def score_job_fit(text: str, question: str = "") -> MetricResult:
-    """지원 적합성 — 임시 휴리스틱."""
-    link_words = ["직무", "전공", "학과", "직무경험", "지원분야", "회사", "당사", "귀사", "조직", "현장"]
-    hits = count_keywords(text, link_words)
-    score = clamp(30 + hits * 12)
-    feedback = (
-        "직무·전공·회사와의 연결 표현이 보입니다. 구체적 직무명·전공 지식과 연결하면 더 강해집니다."
-        if score >= 70
-        else "지원 직무/전공/회사와의 연결이 약합니다. '○○ 직무에 필요한 ○○ 역량'처럼 명시적으로 연결하세요."
-    )
-    return MetricResult("지원 적합성", score, level_from_score(score), feedback)
+    """지원 적합성 — ROLE05 job_fit_detector(직무 키워드 사전) 연결. 실패 시 휴리스틱 폴백."""
+    try:
+        from models.role05_match.job_fit_detector import detect_job_fit
+        r = detect_job_fit(text, question)
+        return MetricResult(
+            "지원 적합성", clamp(r["score"]), r["grade"], r["feedback_items"][0],
+            details={"matched_keywords": r["matched_keywords"], "link_hits": r["link_hits"]},
+        )
+    except Exception:
+        return MetricResult(
+            "지원 적합성", 0, "미연결",
+            "지원 적합성 분석 모듈(job_fit_detector)을 불러오지 못했습니다.",
+            applicable=False,
+        )
 
 
 def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
-    """문장 완성도 — 문장 구조·가독성·반복 종합."""
-    if not sentences:
-        return MetricResult("문장 완성도", 0, "분석 불가", "분석할 문장이 없습니다.")
-    lengths = [len(s) for s in sentences]
-    avg_len = sum(lengths) / len(lengths)
-    long_ratio = sum(1 for n in lengths if n > 120) / len(lengths)
-    score = clamp(round(85 - long_ratio * 60 - max(0, avg_len - 90) * 0.5))
-    if long_ratio >= 0.3 or avg_len > 100:
-        feedback = "한 문장이 깁니다. 한 문장에 한 메시지만 담아 짧게 끊으면 가독성이 올라갑니다."
-    else:
-        feedback = "문장 길이와 구조는 대체로 읽기 좋습니다. 맞춤법은 별도 검수를 권장합니다."
-    return MetricResult("문장 완성도", score, level_from_score(score), feedback)
+    """문장 완성도(맞춤법·문장 구조·가독성) — 전용 분석 모듈 미연결."""
+    return MetricResult(
+        "문장 완성도", 0, "미연결",
+        "문장 완성도(맞춤법·가독성) 분석 모듈이 아직 없습니다.",
+        applicable=False,
+    )
 
 
 # ── ROLE03 영역 ──────────────────────────────────────────────
@@ -314,17 +312,46 @@ def score_self_centered(text: str) -> MetricResult:
 
 # ── ROLE05 영역 ──────────────────────────────────────────────
 
+def _semantic_relevance(question: str, answer: str):
+    """ko-sroberta 코사인(질문↔답변) 0~100. 군집화용 모델 재사용. 실패 시 None."""
+    try:
+        from models.role05_match.question_clusterer import get_sbert_model
+        from sklearn.metrics.pairwise import cosine_similarity
+        emb = get_sbert_model().encode([question, answer])
+        cos = float(cosine_similarity([emb[0]], [emb[1]])[0][0])
+        return clamp(round(cos * 100))
+    except Exception:
+        return None
+
+
+def _relevance_level(score: int) -> str:
+    if score >= 55:
+        return "우수"
+    if score >= 25:
+        return "보통"
+    return "위험"
+
+
 def score_question_relevance(question: str, answer: str) -> MetricResult:
     if detect_answer_relevance is None:
         return MetricResult(
-            "문항 적합성", 0, "분석 불가",
-            "질문-답변 적합도 모델을 불러오지 못했습니다.",
+            "문항 적합성", 0, "미연결",
+            "질문-답변 적합도 모델을 불러오지 못했습니다.", applicable=False,
         )
     result = detect_answer_relevance(question, answer)
+    kw_score = result["score"]
+
+    # 하이브리드: 키워드 정밀도 + SBERT 의미 재현율 (SBERT 불가 시 키워드만)
+    sem = _semantic_relevance(question, answer)
+    score = clamp(round(0.4 * kw_score + 0.6 * sem)) if sem is not None else kw_score
+
     feedback = result["summary"]
     if result["feedback_items"]:
         feedback = result["feedback_items"][0]
-    return MetricResult("문항 적합성", result["score"], result["grade"], feedback)
+    return MetricResult(
+        "문항 적합성", score, _relevance_level(score), feedback,
+        details={"keyword": kw_score, "semantic": sem},
+    )
 
 
 # ── 공통 유틸 ────────────────────────────────────────────────
