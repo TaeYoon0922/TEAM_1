@@ -56,12 +56,12 @@ class AnalysisResult:
 # 최종 표시 지표 (순서 = 화면 노출 순서)
 # 참고: '지원 적합성'은 직무 사전(role03) 변별력 부족으로 현재 평가지표에서 제외(연동만 해제, 코드는 유지).
 INDICATORS = [
-    "문항 적합성",       # 질문에 맞는 답변인지        ← relevance_detector
+    "문항 적합성",       # 질문에 맞는 답변인지        ← relevance_detector + ko-sroberta(하이브리드)
     "핵심 주장 명확성",  # 두괄식, 핵심 메시지          ← KoSimCSE(폴백: 규칙)
     "경험 구체성",       # STAR, 실제 행동과 결과       ← 규칙(STAR)
     "표현 명료성",       # 모호어·추상어·상투어         ← hedge_detector
-    "자기표현 차별성",   # 본인만의 경험과 관점         ← self_detector
-    "문장 완성도",       # 맞춤법·문장 구조·가독성       ← dependency_parser
+    "자기표현 차별성",   # 본인만의 경험과 관점         ← self_detector + dependency_parser
+    "문장 완성도",       # 문장 구조·가독성            ← 규칙(길이·종결어 반복)
 ]
 
 # 문항 적합성 점수가 이 미만이면 나머지 분석 중단
@@ -303,8 +303,14 @@ def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
         issues.append("전체 내용이 너무 짧습니다. 경험과 결과를 더 풀어서 작성하세요.")
 
     score = clamp(score)
-    feedback = issues[0] if issues else "문장 길이와 구조가 읽기 좋습니다."
-    return MetricResult("문장 완성도", score, level_from_score(score), feedback)
+    # 이슈가 있으면 등급과 피드백을 일치시킨다(우수인데 지적 문구가 뜨는 모순 방지)
+    if issues:
+        level = "보완 필요" if score < 70 else "보통"
+        feedback = issues[0]
+    else:
+        level = "우수"
+        feedback = "문장 길이와 구조가 읽기 좋습니다."
+    return MetricResult("문장 완성도", score, level, feedback)
 
 
 # ── ROLE03 영역 ──────────────────────────────────────────────

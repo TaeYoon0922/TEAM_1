@@ -192,59 +192,6 @@ def inject_styles() -> None:
             font-weight: 850;
         }
 
-        .score-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 0.75rem;
-            margin: 1rem 0 1.1rem;
-        }
-
-        .score-card {
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            background: #ffffff;
-            padding: 0.95rem;
-        }
-
-        .score-label {
-            color: var(--muted);
-            font-size: 0.8rem;
-            font-weight: 800;
-            margin-bottom: 0.3rem;
-        }
-
-        .score-value {
-            font-size: 1.9rem;
-            font-weight: 900;
-            line-height: 1;
-        }
-
-        .score-level {
-            display: inline-flex;
-            margin-top: 0.58rem;
-            border-radius: 999px;
-            background: var(--soft);
-            color: #374151;
-            padding: 0.22rem 0.52rem;
-            font-size: 0.75rem;
-            font-weight: 800;
-        }
-
-        .meter {
-            width: 100%;
-            height: 7px;
-            border-radius: 999px;
-            background: #edf0f3;
-            overflow: hidden;
-            margin-top: 0.75rem;
-        }
-
-        .meter span {
-            display: block;
-            height: 100%;
-            border-radius: 999px;
-        }
-
         .ind-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -334,7 +281,7 @@ def inject_styles() -> None:
         }
 
         @media (max-width: 760px) {
-            .score-grid, .ind-grid {
+            .ind-grid {
                 grid-template-columns: repeat(1, minmax(0, 1fr));
             }
 
