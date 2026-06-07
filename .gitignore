@@ -11,6 +11,9 @@ build/
 .DS_Store
 .hf_cache/
 
-# ROLE01 대용량 데이터 산출물 (앱 런타임 불필요, GitHub 100MB 초과 위험)
-data/raw/*.csv
-data/raw/*.xlsx
+# Large local datasets and generated model outputs
+data/labeled/jobkorea_star_full_labeled_sentence_dataset.csv
+data/labeled/*.csv:Zone.Identifier
+data/processed/role02_*.csv
+models/**/cache/
+models/**/artifacts/

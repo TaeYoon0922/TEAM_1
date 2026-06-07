@@ -1,6 +1,6 @@
 """
 SBERT(ko-sroberta-multitask) 의미 임베딩 + K-Means(k=6) 재군집.
-런타임 예측이 쓰는 kmeans_model.pkl(KMEANS_CACHE)에 기록 → SBERT가 실배포 군집이 됨.
+런타임 예측이 쓰는 train_kmeans_model.pkl(KMEANS_CACHE)에 기록 → SBERT가 실배포 군집이 됨.
 """
 import sys, os, io, pickle
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
@@ -42,7 +42,7 @@ questions  = load_questions()
 embeddings = get_sbert_embeddings(questions)
 print(f"질문 {len(questions)}개 / SBERT 임베딩 {embeddings.shape}")
 
-# 2) K-Means k=6 → kmeans_model.pkl (런타임 모델)
+# 2) K-Means k=6 → train_kmeans_model.pkl (런타임 모델)
 km = fit_kmeans(embeddings, k=K, force_reload=True)
 labels  = km.labels_
 sizes   = [int((labels == c).sum()) for c in range(K)]

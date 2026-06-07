@@ -23,10 +23,10 @@ from sklearn.decomposition import TruncatedSVD, PCA
 from sklearn.cluster import KMeans
 
 CACHE          = _CACHE_DIR
-NOUN_Q_CACHE   = CACHE / "noun_questions.pkl"
-NOUN_EMB_CACHE = CACHE / "noun_tfidf_lsa_embeddings.npy"
-NOUN_VEC_CACHE = CACHE / "noun_tfidf_vectorizer.pkl"
-NOUN_KM_CACHE  = CACHE / "noun_kmeans_model.pkl"
+NOUN_Q_CACHE   = CACHE / "train_noun_questions.pkl"
+NOUN_EMB_CACHE = CACHE / "train_noun_tfidf_lsa_embeddings.npy"
+NOUN_VEC_CACHE = CACHE / "train_noun_tfidf_vectorizer.pkl"
+NOUN_KM_CACHE  = CACHE / "train_noun_kmeans_model.pkl"
 
 # ── 한국어 폰트 ────────────────────────────────────────────────────────────────
 for fn in ["Malgun Gothic", "NanumGothic", "DejaVu Sans"]:
