@@ -11,26 +11,26 @@ from typing import Dict, List
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role03_hedge'))
     from hedge_detector import detect_hedge_expressions
-except ImportError:
+except Exception:
     detect_hedge_expressions = None
 
 # ROLE04 self_detector + dependency_parser
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role04_self'))
     from self_detector import detect_self_language
-except ImportError:
+except Exception:
     detect_self_language = None
 
 try:
     from dependency_parser import parse_paragraph as dep_parse_paragraph
-except ImportError:
+except Exception:
     dep_parse_paragraph = None
 
 # ROLE05 relevance_detector
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
     from models.role05_match.relevance_detector import detect_answer_relevance
-except ImportError:
+except Exception:
     detect_answer_relevance = None
 
 
