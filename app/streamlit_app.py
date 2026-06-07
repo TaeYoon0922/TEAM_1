@@ -24,11 +24,6 @@ METRIC_DESCRIPTIONS = {
         "detail": "Situation, Task, Action, Result가 모두 보여야 경험이 단순 주장보다 설득력 있는 근거로 읽힙니다.",
         "check": "배경, 맡은 역할, 실제 행동, 결과가 빠지지 않았는지 확인합니다.",
     },
-    "지원 적합성": {
-        "summary": "직무·전공·회사와의 연결성을 보는 지표입니다.",
-        "detail": "경험이 지원 직무/전공/회사와 연결될수록 '왜 이 사람인지'가 설득력 있게 드러납니다.",
-        "check": "지원 직무명·전공 지식·회사와의 연결 표현이 있는지 확인합니다.",
-    },
     "표현 명료성": {
         "summary": "모호어·추상어·상투어가 적을수록 좋은 지표입니다.",
         "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 명료합니다.",
@@ -197,59 +192,6 @@ def inject_styles() -> None:
             font-weight: 850;
         }
 
-        .score-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 0.75rem;
-            margin: 1rem 0 1.1rem;
-        }
-
-        .score-card {
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            background: #ffffff;
-            padding: 0.95rem;
-        }
-
-        .score-label {
-            color: var(--muted);
-            font-size: 0.8rem;
-            font-weight: 800;
-            margin-bottom: 0.3rem;
-        }
-
-        .score-value {
-            font-size: 1.9rem;
-            font-weight: 900;
-            line-height: 1;
-        }
-
-        .score-level {
-            display: inline-flex;
-            margin-top: 0.58rem;
-            border-radius: 999px;
-            background: var(--soft);
-            color: #374151;
-            padding: 0.22rem 0.52rem;
-            font-size: 0.75rem;
-            font-weight: 800;
-        }
-
-        .meter {
-            width: 100%;
-            height: 7px;
-            border-radius: 999px;
-            background: #edf0f3;
-            overflow: hidden;
-            margin-top: 0.75rem;
-        }
-
-        .meter span {
-            display: block;
-            height: 100%;
-            border-radius: 999px;
-        }
-
         .ind-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -339,7 +281,7 @@ def inject_styles() -> None:
         }
 
         @media (max-width: 760px) {
-            .score-grid, .ind-grid {
+            .ind-grid {
                 grid-template-columns: repeat(1, minmax(0, 1fr));
             }
 
@@ -398,12 +340,10 @@ def render_sidebar() -> None:
 
 def render_topbar(title: str, status: str) -> None:
     st.markdown(
-        f"""
-        <div class="topbar">
-            <div class="brand">{escape(title)}</div>
-            <div class="status-pill">{escape(status)}</div>
-        </div>
-        """,
+        f'<div class="topbar">'
+        f'<div class="brand">{escape(title)}</div>'
+        f'<div class="status-pill">{escape(status)}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
@@ -429,24 +369,20 @@ def render_history_page() -> None:
 
     if not history:
         st.markdown(
-            """
-            <div class="page-card">
-                <h1>저장된 분석이 없습니다.</h1>
-                <p>자소서 분석 화면에서 문장을 입력하고 분석하면 여기에 자동으로 저장됩니다.</p>
-            </div>
-            """,
+            '<div class="page-card">'
+            '<h1>저장된 분석이 없습니다.</h1>'
+            '<p>자소서 분석 화면에서 문장을 입력하고 분석하면 여기에 자동으로 저장됩니다.</p>'
+            '</div>',
             unsafe_allow_html=True,
         )
         return
 
     for item in reversed(history):
         st.markdown(
-            f"""
-            <div class="history-card">
-                <b>{escape(item["time"])}</b>
-                <p>{escape(item["preview"])}</p>
-            </div>
-            """,
+            f'<div class="history-card">'
+            f'<b>{escape(item["time"])}</b>'
+            f'<p>{escape(item["preview"])}</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
         cols = st.columns([1, 1, 4])
@@ -495,18 +431,14 @@ def render_metric_page() -> None:
 
 def render_intro_message() -> None:
     st.markdown(
-        """
-        <div class="message">
-            <div class="avatar assistant-avatar">AI</div>
-            <div class="bubble">
-                <h1>자소서 문장을 붙여넣어 주세요.</h1>
-                <p>
-                    질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성, 지원 적합성,
-                    표현 명료성, 자기표현 차별성, 문장 완성도 7가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.
-                </p>
-            </div>
-        </div>
-        """,
+        '<div class="message">'
+        '<div class="avatar assistant-avatar">AI</div>'
+        '<div class="bubble">'
+        '<h1>자소서 문장을 붙여넣어 주세요.</h1>'
+        '<p>질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성, '
+        '표현 명료성, 자기표현 차별성, 문장 완성도 6가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.</p>'
+        '</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -567,27 +499,20 @@ def render_user_message(text: str, question: str = "") -> None:
     if question:
         question_html = f'<p><b>질문</b><br>{escape(question).replace(chr(10), "<br>")}</p><hr>'
     st.markdown(
-        f"""
-        <div class="message">
-            <div class="avatar user-avatar">나</div>
-            <div class="bubble">{question_html}{preview}</div>
-        </div>
-        """,
+        f'<div class="message">'
+        f'<div class="avatar user-avatar">나</div>'
+        f'<div class="bubble">{question_html}{preview}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
 
 def render_assistant_message(result: AnalysisResult) -> None:
     st.markdown(
-        f"""
-        <div class="message">
-            <div class="avatar assistant-avatar">AI</div>
-            <div class="bubble">
-                <h1>피드백</h1>
-                <p>{escape(result.summary)}</p>
-            </div>
-        </div>
-        """,
+        f'<div class="message">'
+        f'<div class="avatar assistant-avatar">AI</div>'
+        f'<div class="bubble"><h1>피드백</h1><p>{escape(result.summary)}</p></div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
     st.markdown(indicator_cards_html(result), unsafe_allow_html=True)
@@ -604,16 +529,16 @@ def indicator_cards_html(result: AnalysisResult) -> str:
     cards = []
     for metric in result.metrics.values():
         if not metric.applicable:
-            level_html = '<span class="ind-level ind-na">해당 없음</span>'
+            # 미연결 / 분석 보류 / 해당 없음 등 실제 상태를 그대로 노출(회색)
+            label_txt = escape(metric.level) if metric.level else "해당 없음"
+            level_html = f'<span class="ind-level ind-na">{label_txt}</span>'
         else:
             level_html = f'<span class="ind-level" style="background:{level_color(metric.level)};">{escape(metric.level)}</span>'
         cards.append(
-            f"""
-            <div class="ind-card">
-                <div class="ind-head">{escape(metric.label)}{level_html}</div>
-                <div class="ind-feedback">{escape(metric.feedback)}</div>
-            </div>
-            """
+            f'<div class="ind-card">'
+            f'<div class="ind-head">{escape(metric.label)}{level_html}</div>'
+            f'<div class="ind-feedback">{escape(metric.feedback)}</div>'
+            f'</div>'
         )
     return f'<div class="ind-grid">{"".join(cards)}</div>'
 
@@ -639,12 +564,10 @@ def render_feedback(result: AnalysisResult) -> None:
 def render_sentence_feedback(result: AnalysisResult) -> None:
     for index, item in enumerate(result.sentence_feedback, start=1):
         st.markdown(
-            f"""
-            <div class="sentence-box">
-                <b>{index}. {escape(item["sentence"])}</b>
-                <p>{escape(item["comment"])}</p>
-            </div>
-            """,
+            f'<div class="sentence-box">'
+            f'<b>{index}. {escape(item["sentence"])}</b>'
+            f'<p>{escape(item["comment"])}</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 

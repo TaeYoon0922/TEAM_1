@@ -485,6 +485,31 @@ def _embed_single(question: str) -> np.ndarray:
     return emb / norm if norm > 0 else emb
 
 
+def _rule_cluster_override(question: str) -> int | None:
+    """명확한 질문 신호는 K-Means보다 우선한다.
+
+    K-Means 군집은 지표 라우팅용 보조 장치라, 흔한 자소서 문항의 강한
+    키워드는 규칙으로 먼저 잡아 군집 쏠림을 줄인다.
+    """
+    q = _preprocess(question).lower()
+
+    # 가치관/견해형은 "지원 직무 관련 Trend"처럼 직무 단어가 섞여도 견해가 핵심이다.
+    if any(signal in q for signal in ("trend", "트렌드", "견해", "가치관", "좌우명", "인재상", "핵심가치")):
+        return 5
+    if any(signal in q for signal in ("협업", "팀워크", "공동", "갈등", "타인과", "팀원")):
+        return 4
+    if any(signal in q for signal in ("성장과정", "성격", "장단점", "장/단점")):
+        return 3
+    if any(signal in q for signal in ("지원동기", "지원 동기", "입사 후", "포부")):
+        return 0
+    if any(signal in q for signal in ("역량", "강점", "전문성", "직무 수행", "직무와 관련")):
+        return 2
+    if any(signal in q for signal in ("문제", "해결", "도전", "성과", "어려움", "극복", "목표를 달성")):
+        return 1
+
+    return None
+
+
 def predict_cluster(question: str, km: KMeans = None,
                     cluster_map: dict = None) -> dict:
     """
@@ -497,9 +522,13 @@ def predict_cluster(question: str, km: KMeans = None,
           "cluster_info": {"name": "경험형", "models": [...], "star_required": True}
         }
     """
-    emb  = _embed_single(question)
-    km   = km or _load_km()
-    cid  = int(km.predict(emb)[0])
+    override = _rule_cluster_override(question)
+    if override is None:
+        emb = _embed_single(question)
+        km = km or _load_km()
+        cid = int(km.predict(emb)[0])
+    else:
+        cid = override
     cmap = cluster_map if cluster_map is not None else load_cluster_map()
 
     return {

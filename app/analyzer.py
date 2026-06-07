@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sys
 import os
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -13,12 +14,17 @@ try:
 except ImportError:
     detect_hedge_expressions = None
 
-# ROLE04 self_detector
+# ROLE04 self_detector + dependency_parser
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role04_self'))
     from self_detector import detect_self_language
 except ImportError:
     detect_self_language = None
+
+try:
+    from dependency_parser import parse_paragraph as dep_parse_paragraph
+except ImportError:
+    dep_parse_paragraph = None
 
 # ROLE05 relevance_detector
 try:
@@ -47,15 +53,15 @@ class AnalysisResult:
     sentence_feedback: List[Dict[str, str]]
 
 
-# 최종 표시 지표 7개 (순서 = 화면 노출 순서)
+# 최종 표시 지표 (순서 = 화면 노출 순서)
+# 참고: '지원 적합성'은 직무 사전(role03) 변별력 부족으로 현재 평가지표에서 제외(연동만 해제, 코드는 유지).
 INDICATORS = [
-    "문항 적합성",       # 질문에 맞는 답변인지        ← relevance_detector
+    "문항 적합성",       # 질문에 맞는 답변인지        ← relevance_detector + ko-sroberta(하이브리드)
     "핵심 주장 명확성",  # 두괄식, 핵심 메시지          ← KoSimCSE(폴백: 규칙)
     "경험 구체성",       # STAR, 실제 행동과 결과       ← 규칙(STAR)
-    "지원 적합성",       # 직무/학교/전공 연결성        ← (임시 휴리스틱)
     "표현 명료성",       # 모호어·추상어·상투어         ← hedge_detector
-    "자기표현 차별성",   # 본인만의 경험과 관점         ← self_detector
-    "문장 완성도",       # 맞춤법·문장 구조·가독성       ← (임시 휴리스틱)
+    "자기표현 차별성",   # 본인만의 경험과 관점         ← self_detector + dependency_parser
+    "문장 완성도",       # 문장 구조·가독성            ← 규칙(길이·종결어 반복)
 ]
 
 # 문항 적합성 점수가 이 미만이면 나머지 분석 중단
@@ -97,7 +103,7 @@ def get_applicable_indicators(question: str):
         return None
 
 
-def analyze_cover_letter(text: str, question: str = "") -> AnalysisResult:
+def analyze_cover_letter(text: str, question: str = "", job: str = "") -> AnalysisResult:
     cleaned = normalize_text(text)
     cleaned_question = normalize_text(question)
     sentences = split_sentences(cleaned)
@@ -143,7 +149,7 @@ def analyze_cover_letter(text: str, question: str = "") -> AnalysisResult:
 
     metrics["핵심 주장 명확성"] = gated("핵심 주장 명확성", lambda: score_core_claim_clarity(cleaned, sentences))
     metrics["경험 구체성"]     = gated("경험 구체성",     lambda: score_star_structure(cleaned))
-    metrics["지원 적합성"]     = gated("지원 적합성",     lambda: score_job_fit(cleaned, cleaned_question))
+    # 지원 적합성: 직무 사전 변별력 부족으로 현재 미연동 (score_job_fit 코드는 유지)
     metrics["표현 명료성"]     = gated("표현 명료성",     lambda: score_ambiguity(cleaned))
     metrics["자기표현 차별성"] = gated("자기표현 차별성", lambda: score_self_centered(cleaned))
     metrics["문장 완성도"]     = gated("문장 완성도",     lambda: score_sentence_quality(sentences, cleaned))
@@ -225,32 +231,86 @@ def score_core_claim_clarity(text: str, sentences: List[str]) -> MetricResult:
         return MetricResult("핵심 주장 명확성", fallback.score, fallback.level, fallback.feedback)
 
 
-def score_job_fit(text: str, question: str = "") -> MetricResult:
-    """지원 적합성 — 임시 휴리스틱."""
-    link_words = ["직무", "전공", "학과", "직무경험", "지원분야", "회사", "당사", "귀사", "조직", "현장"]
-    hits = count_keywords(text, link_words)
-    score = clamp(30 + hits * 12)
-    feedback = (
-        "직무·전공·회사와의 연결 표현이 보입니다. 구체적 직무명·전공 지식과 연결하면 더 강해집니다."
-        if score >= 70
-        else "지원 직무/전공/회사와의 연결이 약합니다. '○○ 직무에 필요한 ○○ 역량'처럼 명시적으로 연결하세요."
-    )
-    return MetricResult("지원 적합성", score, level_from_score(score), feedback)
+def get_job_list() -> List[str]:
+    """선택 가능한 직무 목록(role03 job_fit_scorer). 실패 시 빈 목록."""
+    try:
+        from job_fit_scorer import list_jobs
+        return list_jobs()
+    except Exception:
+        return []
+
+
+def score_job_fit(text: str, job: str = "") -> MetricResult:
+    """지원 적합성 — role03 job_fit_scorer로 '선택한 직무'와의 키워드 적합성 평가.
+    직무 미선택/저신뢰 직무는 점수 대신 안내(applicable=False)."""
+    if not job:
+        return MetricResult(
+            "지원 적합성", 0, "직무 미선택",
+            "직무를 선택하면 해당 직무와의 적합성을 분석합니다.", applicable=False,
+        )
+    try:
+        from job_fit_scorer import score_job_fit as role03_job_fit
+        r = role03_job_fit(text, job)
+        # 신뢰도 낮은 직무(키워드 부족) → 결과 미노출
+        if not r.get("reliable", False) or r.get("score") is None:
+            return MetricResult(
+                "지원 적합성", 0, "분석 불가",
+                r.get("feedback", f"'{job}' 직무는 데이터가 부족해 적합성을 산출할 수 없습니다."),
+                applicable=False, details={"job": job, "reliable": False},
+            )
+        return MetricResult(
+            "지원 적합성", clamp(r["score"]), level_from_score(r["score"]), r["feedback"],
+            details={"job": job, "matched": r.get("matched", []), "missing": r.get("missing", [])},
+        )
+    except Exception:
+        return MetricResult(
+            "지원 적합성", 0, "미연결",
+            "지원 적합성 분석 모듈(job_fit_scorer)을 불러오지 못했습니다.",
+            applicable=False,
+        )
 
 
 def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
-    """문장 완성도 — 문장 구조·가독성·반복 종합."""
+    """문장 완성도 — 문장 길이·종결어 반복·가독성 기반 규칙 채점."""
     if not sentences:
         return MetricResult("문장 완성도", 0, "분석 불가", "분석할 문장이 없습니다.")
-    lengths = [len(s) for s in sentences]
-    avg_len = sum(lengths) / len(lengths)
-    long_ratio = sum(1 for n in lengths if n > 120) / len(lengths)
-    score = clamp(round(85 - long_ratio * 60 - max(0, avg_len - 90) * 0.5))
-    if long_ratio >= 0.3 or avg_len > 100:
-        feedback = "한 문장이 깁니다. 한 문장에 한 메시지만 담아 짧게 끊으면 가독성이 올라갑니다."
+
+    score = 100
+    issues = []
+
+    # 1. 과도하게 긴 문장 (120자 초과) — 한 문장에 내용이 너무 많음
+    long_sents = [s for s in sentences if len(s) > 120]
+    if long_sents:
+        score -= min(len(long_sents) * 10, 30)
+        issues.append(f"긴 문장 {len(long_sents)}개 — 한 문장에 한 메시지만 담아 끊으세요.")
+
+    # 2. 너무 짧은 문장 (15자 미만) — 내용 부족
+    short_sents = [s for s in sentences if len(s) < 15]
+    if short_sents:
+        score -= min(len(short_sents) * 5, 15)
+        issues.append(f"짧은 문장 {len(short_sents)}개 — 내용이 충분히 전달되는지 확인하세요.")
+
+    # 3. 종결어 반복 — 같은 끝맺음이 3회 이상 반복되면 단조로움
+    endings = [s.strip()[-5:] for s in sentences if len(s.strip()) >= 5]
+    repeated = {e: c for e, c in Counter(endings).items() if c >= 3}
+    if repeated:
+        score -= min(len(repeated) * 10, 20)
+        issues.append("같은 문장 종결 패턴이 반복됩니다 — 문장 끝맺음을 다양하게 바꾸세요.")
+
+    # 4. 전체 답변이 너무 짧음
+    if len(text) < 100:
+        score -= 20
+        issues.append("전체 내용이 너무 짧습니다. 경험과 결과를 더 풀어서 작성하세요.")
+
+    score = clamp(score)
+    # 이슈가 있으면 등급과 피드백을 일치시킨다(우수인데 지적 문구가 뜨는 모순 방지)
+    if issues:
+        level = "보완 필요" if score < 70 else "보통"
+        feedback = issues[0]
     else:
-        feedback = "문장 길이와 구조는 대체로 읽기 좋습니다. 맞춤법은 별도 검수를 권장합니다."
-    return MetricResult("문장 완성도", score, level_from_score(score), feedback)
+        level = "우수"
+        feedback = "문장 길이와 구조가 읽기 좋습니다."
+    return MetricResult("문장 완성도", score, level, feedback)
 
 
 # ── ROLE03 영역 ──────────────────────────────────────────────
@@ -283,12 +343,23 @@ def score_ambiguity(text: str) -> MetricResult:
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
 def score_self_centered(text: str) -> MetricResult:
-    """자기표현 차별성 — self_detector 연동. self_score가 낮을수록(기여 중심) 좋음."""
+    """자기표현 차별성 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩."""
     if detect_self_language is None:
         return MetricResult("자기표현 차별성", 50, "주의", "self_detector 연결 실패.")
 
     result = detect_self_language(text)
-    score = clamp(result["self_score"])  # 높을수록 자기중심(나 중심) → 위험
+    dict_score = clamp(result["self_score"])
+
+    # dependency_parser가 있으면 의존 구문 자기중심 비율을 40% 가중 합산
+    if dep_parse_paragraph is not None:
+        try:
+            dep = dep_parse_paragraph(text)
+            dep_score = clamp(round(dep["self_ratio"] * 100))
+            score = clamp(round(dict_score * 0.6 + dep_score * 0.4))
+        except Exception:
+            score = dict_score
+    else:
+        score = dict_score
 
     feedback = result["summary"]
     if result["feedback_items"]:
@@ -314,17 +385,46 @@ def score_self_centered(text: str) -> MetricResult:
 
 # ── ROLE05 영역 ──────────────────────────────────────────────
 
+def _semantic_relevance(question: str, answer: str):
+    """ko-sroberta 코사인(질문↔답변) 0~100. 군집화용 모델 재사용. 실패 시 None."""
+    try:
+        from models.role05_match.question_clusterer import get_sbert_model
+        from sklearn.metrics.pairwise import cosine_similarity
+        emb = get_sbert_model().encode([question, answer])
+        cos = float(cosine_similarity([emb[0]], [emb[1]])[0][0])
+        return clamp(round(cos * 100))
+    except Exception:
+        return None
+
+
+def _relevance_level(score: int) -> str:
+    if score >= 55:
+        return "우수"
+    if score >= 25:
+        return "보통"
+    return "위험"
+
+
 def score_question_relevance(question: str, answer: str) -> MetricResult:
     if detect_answer_relevance is None:
         return MetricResult(
-            "문항 적합성", 0, "분석 불가",
-            "질문-답변 적합도 모델을 불러오지 못했습니다.",
+            "문항 적합성", 0, "미연결",
+            "질문-답변 적합도 모델을 불러오지 못했습니다.", applicable=False,
         )
     result = detect_answer_relevance(question, answer)
+    kw_score = result["score"]
+
+    # 하이브리드: 키워드 정밀도 + SBERT 의미 재현율 (SBERT 불가 시 키워드만)
+    sem = _semantic_relevance(question, answer)
+    score = clamp(round(0.4 * kw_score + 0.6 * sem)) if sem is not None else kw_score
+
     feedback = result["summary"]
     if result["feedback_items"]:
         feedback = result["feedback_items"][0]
-    return MetricResult("문항 적합성", result["score"], result["grade"], feedback)
+    return MetricResult(
+        "문항 적합성", score, _relevance_level(score), feedback,
+        details={"keyword": kw_score, "semantic": sem},
+    )
 
 
 # ── 공통 유틸 ────────────────────────────────────────────────
@@ -391,8 +491,6 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
         improvements.append("첫 문장을 '무엇을 개선했고 어떤 결과를 냈는지'로 다시 시작하세요.")
     if _on(metrics, "경험 구체성") and metrics["경험 구체성"].score < 70:
         improvements.append("상황-S, 과제-T, 행동-A, 결과-R가 각각 보이도록 문단을 재배치하세요.")
-    if _on(metrics, "지원 적합성") and metrics["지원 적합성"].score < 70:
-        improvements.append("지원 직무/전공/회사와의 연결을 '○○ 직무에 필요한 ○○ 역량'처럼 명시하세요.")
     if _on(metrics, "표현 명료성") and metrics["표현 명료성"].score < 70:
         improvements.append("'열심히', '다양한', '성장' 같은 표현을 숫자, 기간, 대상, 행동으로 바꾸세요.")
     if _on(metrics, "자기표현 차별성") and metrics["자기표현 차별성"].score > 35:
