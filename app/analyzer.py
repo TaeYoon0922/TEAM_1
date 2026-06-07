@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import sys
 import os
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List
 
@@ -13,12 +14,17 @@ try:
 except ImportError:
     detect_hedge_expressions = None
 
-# ROLE04 self_detector
+# ROLE04 self_detector + dependency_parser
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role04_self'))
     from self_detector import detect_self_language
 except ImportError:
     detect_self_language = None
+
+try:
+    from dependency_parser import parse_paragraph as dep_parse_paragraph
+except ImportError:
+    dep_parse_paragraph = None
 
 # ROLE05 relevance_detector
 try:
@@ -243,12 +249,40 @@ def score_job_fit(text: str, question: str = "") -> MetricResult:
 
 
 def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
-    """문장 완성도(맞춤법·문장 구조·가독성) — 전용 분석 모듈 미연결."""
-    return MetricResult(
-        "문장 완성도", 0, "미연결",
-        "문장 완성도(맞춤법·가독성) 분석 모듈이 아직 없습니다.",
-        applicable=False,
-    )
+    """문장 완성도 — 문장 길이·종결어 반복·가독성 기반 규칙 채점."""
+    if not sentences:
+        return MetricResult("문장 완성도", 0, "분석 불가", "분석할 문장이 없습니다.")
+
+    score = 100
+    issues = []
+
+    # 1. 과도하게 긴 문장 (120자 초과) — 한 문장에 내용이 너무 많음
+    long_sents = [s for s in sentences if len(s) > 120]
+    if long_sents:
+        score -= min(len(long_sents) * 10, 30)
+        issues.append(f"긴 문장 {len(long_sents)}개 — 한 문장에 한 메시지만 담아 끊으세요.")
+
+    # 2. 너무 짧은 문장 (15자 미만) — 내용 부족
+    short_sents = [s for s in sentences if len(s) < 15]
+    if short_sents:
+        score -= min(len(short_sents) * 5, 15)
+        issues.append(f"짧은 문장 {len(short_sents)}개 — 내용이 충분히 전달되는지 확인하세요.")
+
+    # 3. 종결어 반복 — 같은 끝맺음이 3회 이상 반복되면 단조로움
+    endings = [s.strip()[-5:] for s in sentences if len(s.strip()) >= 5]
+    repeated = {e: c for e, c in Counter(endings).items() if c >= 3}
+    if repeated:
+        score -= min(len(repeated) * 10, 20)
+        issues.append("같은 문장 종결 패턴이 반복됩니다 — 문장 끝맺음을 다양하게 바꾸세요.")
+
+    # 4. 전체 답변이 너무 짧음
+    if len(text) < 100:
+        score -= 20
+        issues.append("전체 내용이 너무 짧습니다. 경험과 결과를 더 풀어서 작성하세요.")
+
+    score = clamp(score)
+    feedback = issues[0] if issues else "문장 길이와 구조가 읽기 좋습니다."
+    return MetricResult("문장 완성도", score, level_from_score(score), feedback)
 
 
 # ── ROLE03 영역 ──────────────────────────────────────────────
@@ -281,12 +315,23 @@ def score_ambiguity(text: str) -> MetricResult:
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
 def score_self_centered(text: str) -> MetricResult:
-    """자기표현 차별성 — self_detector 연동. self_score가 낮을수록(기여 중심) 좋음."""
+    """자기표현 차별성 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩."""
     if detect_self_language is None:
         return MetricResult("자기표현 차별성", 50, "주의", "self_detector 연결 실패.")
 
     result = detect_self_language(text)
-    score = clamp(result["self_score"])  # 높을수록 자기중심(나 중심) → 위험
+    dict_score = clamp(result["self_score"])
+
+    # dependency_parser가 있으면 의존 구문 자기중심 비율을 40% 가중 합산
+    if dep_parse_paragraph is not None:
+        try:
+            dep = dep_parse_paragraph(text)
+            dep_score = clamp(round(dep["self_ratio"] * 100))
+            score = clamp(round(dict_score * 0.6 + dep_score * 0.4))
+        except Exception:
+            score = dict_score
+    else:
+        score = dict_score
 
     feedback = result["summary"]
     if result["feedback_items"]:
