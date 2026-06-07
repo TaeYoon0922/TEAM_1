@@ -7,7 +7,7 @@ from pathlib import Path
 from kiwipiepy import Kiwi
 from models.role05_match.question_clusterer import load_questions, _CACHE_DIR
 
-NOUN_Q_CACHE = _CACHE_DIR / "noun_questions.pkl"
+NOUN_Q_CACHE = _CACHE_DIR / "train_noun_questions.pkl"
 NOUN_TAGS    = {"NNG", "NNP", "NNB"}  # 일반명사, 고유명사, 의존명사
 
 questions = load_questions()

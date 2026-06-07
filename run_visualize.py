@@ -39,16 +39,16 @@ CLUSTER_LABELS = ["군집 0", "군집 1", "군집 2"]   # cluster_map.json 이�
 
 # ── 데이터 로드 ───────────────────────────────────────────────────────────────
 print("데이터 로드 중...")
-embeddings = np.load(CACHE / "tfidf_lsa_embeddings.npy")
+embeddings = np.load(CACHE / "train_tfidf_lsa_embeddings.npy")
 
-with open(CACHE / "kmeans_model.pkl", "rb") as f:
+with open(CACHE / "train_kmeans_model.pkl", "rb") as f:
     km = pickle.load(f)
 labels = km.labels_
 
-with open(CACHE / "unique_questions.pkl", "rb") as f:
+with open(CACHE / "train_unique_questions.pkl", "rb") as f:
     questions = pickle.load(f)
 
-with open(CACHE / "tfidf_vectorizer.pkl", "rb") as f:
+with open(CACHE / "train_tfidf_vectorizer.pkl", "rb") as f:
     vectorizer, svd = pickle.load(f)
 
 k = km.n_clusters

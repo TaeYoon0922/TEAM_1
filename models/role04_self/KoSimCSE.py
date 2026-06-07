@@ -10,6 +10,8 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import kss
+import csv
+from pathlib import Path
 
 # ── 모델 로드 (최초 1회만) ────────────────────────────────────────────────────
 _model = None
@@ -187,24 +189,17 @@ def _make_overall_feedback(dugo, migu, lst, total) -> str:
 # ── 실행 예시 ─────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    sample_essay = """
-저는 3년간 데이터 분석 업무를 담당하며 핵심 역량을 키웠습니다.
-Python과 SQL을 활용해 매월 500만 건의 거래 데이터를 처리했고,
-이를 통해 이상 패턴을 조기 감지하는 모델을 개발했습니다.
-그 결과 운영 비용을 15% 절감하는 성과를 냈습니다.
-
-어릴 때부터 저는 사람을 좋아했습니다.
-대학교에서 다양한 동아리 활동을 하면서 팀워크를 배웠고,
-그 경험이 지금의 저를 만들었다고 생각합니다.
-결론적으로 저는 협업을 가장 중요한 가치로 여깁니다.
-
-첫째, 소통 능력을 키웠습니다.
-둘째, 리더십을 발휘했습니다.
-셋째, 문제 해결력을 길렀습니다.
-"""
+    train_path = Path(__file__).resolve().parents[2] / "data" / "processed" / "jobkorea_train.csv"
+    with train_path.open(encoding="utf-8-sig", newline="") as f:
+        train_essay = next(
+            row["answer"]
+            for row in csv.DictReader(f)
+            if row.get("answer", "").strip()
+        )
 
     print("=" * 60)
-    result = analyze_essay(sample_essay)
+    print(f"train 데이터 예시: {train_path.relative_to(Path(__file__).resolve().parents[2])}")
+    result = analyze_essay(train_essay)
 
     print(result["overall_feedback"])
     print()
@@ -218,5 +213,3 @@ Python과 SQL을 활용해 매월 500만 건의 거래 데이터를 처리했고
     print("📝 자소서 핵심 요약 (중심문장 모음)")
     for i, s in enumerate(result["center_sentences"], 1):
         print(f"  {i}. {s}")
-
-

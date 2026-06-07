@@ -10,3 +10,10 @@ dist/
 build/
 .DS_Store
 .hf_cache/
+
+# Large local datasets and generated model outputs
+data/labeled/jobkorea_star_full_labeled_sentence_dataset.csv
+data/labeled/*.csv:Zone.Identifier
+data/processed/role02_*.csv
+models/**/cache/
+models/**/artifacts/

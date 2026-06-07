@@ -25,18 +25,18 @@ from sklearn.pipeline import Pipeline
 # ── 경로 설정 ──────────────────────────────────────────────────────────────────
 _DIR = Path(__file__).parent
 _ROOT = _DIR.parent.parent
-_DATA_PATH = _ROOT / "data" / "raw" / "잡코리아 데이터셋 원문 7000개.csv"
+_DATA_PATH = _ROOT / "data" / "processed" / "jobkorea_train.csv"
 _CACHE_DIR = _DIR / "cache"
 _CLUSTER_MAP_PATH = _DIR / "cluster_map.json"
 
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-EMBED_CACHE     = _CACHE_DIR / "sbert_embeddings.npy"
-TFIDF_EMB_CACHE = _CACHE_DIR / "tfidf_lsa_embeddings.npy"
-QUESTIONS_CACHE = _CACHE_DIR / "unique_questions.pkl"
-KMEANS_CACHE    = _CACHE_DIR / "kmeans_model.pkl"
-TFIDF_CACHE     = _CACHE_DIR / "tfidf_embeddings.npy"
-VECTORIZER_CACHE = _CACHE_DIR / "tfidf_vectorizer.pkl"
+EMBED_CACHE      = _CACHE_DIR / "train_sbert_embeddings.npy"
+TFIDF_EMB_CACHE  = _CACHE_DIR / "train_tfidf_lsa_embeddings.npy"
+QUESTIONS_CACHE  = _CACHE_DIR / "train_unique_questions.pkl"
+KMEANS_CACHE     = _CACHE_DIR / "train_kmeans_model.pkl"
+TFIDF_CACHE      = _CACHE_DIR / "train_tfidf_embeddings.npy"
+VECTORIZER_CACHE = _CACHE_DIR / "train_tfidf_vectorizer.pkl"
 
 # ── SBERT 사용 가능 여부 체크 ─────────────────────────────────────────────────
 _SBERT_AVAILABLE = False

@@ -14,8 +14,8 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # 캐시 로드
 questions  = load_questions()
-with open(CACHE / "noun_kmeans_model.pkl", "rb") as f: km = pickle.load(f)
-with open(CACHE / "noun_questions.pkl",    "rb") as f: noun_docs = pickle.load(f)
+with open(CACHE / "train_noun_kmeans_model.pkl", "rb") as f: km = pickle.load(f)
+with open(CACHE / "train_noun_questions.pkl",    "rb") as f: noun_docs = pickle.load(f)
 
 labels  = km.labels_
 centers = km.cluster_centers_
