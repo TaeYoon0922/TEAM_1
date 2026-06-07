@@ -17,3 +17,10 @@ data/labeled/*.csv:Zone.Identifier
 data/processed/role02_*.csv
 models/**/cache/
 models/**/artifacts/
+
+# 군집 캐시(SBERT 임베딩/KMeans) — 로컬 재생성물, 대용량
+models/role05_match/cache/
+
+# ROLE01 대용량 데이터 산출물 (앱 런타임 불필요, GitHub 100MB 초과)
+data/raw/*.csv
+data/raw/*.xlsx
