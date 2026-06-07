@@ -340,12 +340,10 @@ def render_sidebar() -> None:
 
 def render_topbar(title: str, status: str) -> None:
     st.markdown(
-        f"""
-        <div class="topbar">
-            <div class="brand">{escape(title)}</div>
-            <div class="status-pill">{escape(status)}</div>
-        </div>
-        """,
+        f'<div class="topbar">'
+        f'<div class="brand">{escape(title)}</div>'
+        f'<div class="status-pill">{escape(status)}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
@@ -371,24 +369,20 @@ def render_history_page() -> None:
 
     if not history:
         st.markdown(
-            """
-            <div class="page-card">
-                <h1>저장된 분석이 없습니다.</h1>
-                <p>자소서 분석 화면에서 문장을 입력하고 분석하면 여기에 자동으로 저장됩니다.</p>
-            </div>
-            """,
+            '<div class="page-card">'
+            '<h1>저장된 분석이 없습니다.</h1>'
+            '<p>자소서 분석 화면에서 문장을 입력하고 분석하면 여기에 자동으로 저장됩니다.</p>'
+            '</div>',
             unsafe_allow_html=True,
         )
         return
 
     for item in reversed(history):
         st.markdown(
-            f"""
-            <div class="history-card">
-                <b>{escape(item["time"])}</b>
-                <p>{escape(item["preview"])}</p>
-            </div>
-            """,
+            f'<div class="history-card">'
+            f'<b>{escape(item["time"])}</b>'
+            f'<p>{escape(item["preview"])}</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
         cols = st.columns([1, 1, 4])
@@ -437,18 +431,14 @@ def render_metric_page() -> None:
 
 def render_intro_message() -> None:
     st.markdown(
-        """
-        <div class="message">
-            <div class="avatar assistant-avatar">AI</div>
-            <div class="bubble">
-                <h1>자소서 문장을 붙여넣어 주세요.</h1>
-                <p>
-                    질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성,
-                    표현 명료성, 자기표현 차별성, 문장 완성도 6가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.
-                </p>
-            </div>
-        </div>
-        """,
+        '<div class="message">'
+        '<div class="avatar assistant-avatar">AI</div>'
+        '<div class="bubble">'
+        '<h1>자소서 문장을 붙여넣어 주세요.</h1>'
+        '<p>질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성, '
+        '표현 명료성, 자기표현 차별성, 문장 완성도 6가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.</p>'
+        '</div>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
@@ -509,27 +499,20 @@ def render_user_message(text: str, question: str = "") -> None:
     if question:
         question_html = f'<p><b>질문</b><br>{escape(question).replace(chr(10), "<br>")}</p><hr>'
     st.markdown(
-        f"""
-        <div class="message">
-            <div class="avatar user-avatar">나</div>
-            <div class="bubble">{question_html}{preview}</div>
-        </div>
-        """,
+        f'<div class="message">'
+        f'<div class="avatar user-avatar">나</div>'
+        f'<div class="bubble">{question_html}{preview}</div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
 
 
 def render_assistant_message(result: AnalysisResult) -> None:
     st.markdown(
-        f"""
-        <div class="message">
-            <div class="avatar assistant-avatar">AI</div>
-            <div class="bubble">
-                <h1>피드백</h1>
-                <p>{escape(result.summary)}</p>
-            </div>
-        </div>
-        """,
+        f'<div class="message">'
+        f'<div class="avatar assistant-avatar">AI</div>'
+        f'<div class="bubble"><h1>피드백</h1><p>{escape(result.summary)}</p></div>'
+        f'</div>',
         unsafe_allow_html=True,
     )
     st.markdown(indicator_cards_html(result), unsafe_allow_html=True)
@@ -552,12 +535,10 @@ def indicator_cards_html(result: AnalysisResult) -> str:
         else:
             level_html = f'<span class="ind-level" style="background:{level_color(metric.level)};">{escape(metric.level)}</span>'
         cards.append(
-            f"""
-            <div class="ind-card">
-                <div class="ind-head">{escape(metric.label)}{level_html}</div>
-                <div class="ind-feedback">{escape(metric.feedback)}</div>
-            </div>
-            """
+            f'<div class="ind-card">'
+            f'<div class="ind-head">{escape(metric.label)}{level_html}</div>'
+            f'<div class="ind-feedback">{escape(metric.feedback)}</div>'
+            f'</div>'
         )
     return f'<div class="ind-grid">{"".join(cards)}</div>'
 
@@ -583,12 +564,10 @@ def render_feedback(result: AnalysisResult) -> None:
 def render_sentence_feedback(result: AnalysisResult) -> None:
     for index, item in enumerate(result.sentence_feedback, start=1):
         st.markdown(
-            f"""
-            <div class="sentence-box">
-                <b>{index}. {escape(item["sentence"])}</b>
-                <p>{escape(item["comment"])}</p>
-            </div>
-            """,
+            f'<div class="sentence-box">'
+            f'<b>{index}. {escape(item["sentence"])}</b>'
+            f'<p>{escape(item["comment"])}</p>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 

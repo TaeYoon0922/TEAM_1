@@ -10,3 +10,7 @@ dist/
 build/
 .DS_Store
 .hf_cache/
+
+# ROLE01 대용량 데이터 산출물 (앱 런타임 불필요, GitHub 100MB 초과 위험)
+data/raw/*.csv
+data/raw/*.xlsx
