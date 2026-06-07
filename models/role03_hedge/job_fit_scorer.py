@@ -1,4 +1,4 @@
-# job_fit_scorer.py — R03-11 지원 적합성 점수 산출
+# job_fit_scorer.py — R03-11 지원 적합성 점수 산출 (개선판)
 
 import json
 import os
@@ -11,12 +11,11 @@ except Exception:
     _okt = None
     KONLPY_AVAILABLE = False
 
-# 직무 키워드 사전 로드
 _BASE_DIR = os.path.dirname(__file__)
 with open(os.path.join(_BASE_DIR, 'job_keywords.json'), encoding='utf-8') as f:
     JOB_KEYWORDS = json.load(f)
 
-# 모든 직무에 공통으로 나오는 단어 (변별력 없음)
+# 모든 직무 공통 단어 (변별력 없음)
 COMMON_WORDS = {
     '노력', '결과', '시간', '문제', '도전', '발전',
     '공부', '준비', '소통', '다른', '관련', '바탕',
@@ -25,41 +24,33 @@ COMMON_WORDS = {
     '생활', '또한', '이후', '분야',
 }
 
+# 최소 키워드 수 기준 (이하면 신뢰도 낮음)
+MIN_KEYWORDS = 5
+
 
 def score_job_fit(text: str, job: str) -> dict:
-    """
-    자소서 텍스트와 직무 키워드 매칭 점수 산출
-
-    Args:
-        text: 자소서 본문
-        job : 직무명 (예: '백엔드개발자', 'AI/ML엔지니어')
-    Returns:
-        score   : 0~100 적합성 점수
-        matched : 매칭된 키워드 리스트
-        missing : 부족한 키워드 리스트
-        feedback: 피드백 문자열
-    """
     if job not in JOB_KEYWORDS:
         return {
             "score": 0,
             "matched": [],
             "missing": [],
             "feedback": f"'{job}' 직무 정보가 없습니다.",
+            "reliable": False,
             "available_jobs": list(JOB_KEYWORDS.keys())[:10]
         }
 
-    # 공통 단어 제거 후 직무 특화 키워드만 사용
     keywords = [k for k in JOB_KEYWORDS[job] if k not in COMMON_WORDS]
 
-    if not keywords:
+    # 키워드 부족 → 신뢰도 낮음
+    if len(keywords) < MIN_KEYWORDS:
         return {
-            "score": 0,
+            "score": None,
             "matched": [],
             "missing": [],
-            "feedback": "직무 특화 키워드가 없습니다."
+            "feedback": f"'{job}' 직무는 특화 키워드가 부족해 적합성 점수를 산출할 수 없습니다.",
+            "reliable": False,
         }
 
-    # 자소서에서 명사 추출
     if KONLPY_AVAILABLE:
         nouns = set(_okt.nouns(text))
     else:
@@ -68,7 +59,12 @@ def score_job_fit(text: str, job: str) -> dict:
     matched = [k for k in keywords if k in nouns]
     missing = [k for k in keywords if k not in nouns]
 
-    score = round(len(matched) / len(keywords) * 100) if keywords else 0
+    score = round(len(matched) / len(keywords) * 100)
+
+    # 100점 방지 — 키워드 3개 이하 매칭은 최대 85점 제한
+    if score == 100 and len(keywords) <= 7:
+        score = round(85 + (len(matched) / len(keywords)) * 10)
+        score = min(score, 92)
 
     if score >= 70:
         feedback = f"'{job}' 직무와 높은 적합성을 보입니다."
@@ -78,13 +74,13 @@ def score_job_fit(text: str, job: str) -> dict:
         feedback = f"'{job}' 직무 관련 키워드가 부족합니다. {missing[:5]} 등을 포함해보세요."
 
     return {
-        "score":   score,
-        "matched": matched,
-        "missing": missing[:5],
+        "score":    score,
+        "matched":  matched,
+        "missing":  missing[:5],
         "feedback": feedback,
+        "reliable": True,
     }
 
 
 def list_jobs() -> list:
-    """사용 가능한 직무 목록 반환"""
     return list(JOB_KEYWORDS.keys())
