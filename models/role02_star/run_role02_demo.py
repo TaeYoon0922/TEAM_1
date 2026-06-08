@@ -11,6 +11,7 @@ from models.role02_star.head_first_rules import analyze_head_first
 from models.role02_star.head_first_classifier import classify_head_first
 from models.role02_star.star_label_model import (
     LABELED_SENTENCE_PATH,
+    STAR_DECISION_THRESHOLD,
     STAR_MODEL_PATH,
     load_labeled_sentence_rows,
     save_star_model,
@@ -66,6 +67,7 @@ status_path = plot_role02_requirement_status(
 print(f"[데이터셋] {DATASET_PATH.relative_to(PROJECT_ROOT)}")
 print(f"[STAR 라벨셋] {LABELED_SENTENCE_PATH.relative_to(PROJECT_ROOT)}")
 print(f"STAR 학습 문장 수: {len(labeled_rows)}")
+print(f"STAR decision threshold: {STAR_DECISION_THRESHOLD}")
 print(f"STAR 모델: {STAR_MODEL_PATH.relative_to(PROJECT_ROOT)}")
 print(f"전체 행 수: {len(rows)}")
 print(f"답변 있는 행 수: {len(answer_rows)}")
@@ -80,7 +82,7 @@ print_table(
         {
             "지표": "핵심 주장 명확성",
             "결과": head["display"],
-            "점수": head["is_head_first"],
+            "점수": head["head_first_score"],
             "근거/피드백": head["reason"],
         },
         {
@@ -134,7 +136,7 @@ def score_answer_row(row, index):
         "question_no": row.get("question_no", ""),
         "question": row.get("question", ""),
         "core_claim_display": head_result["display"],
-        "core_claim_score": head_result["is_head_first"],
+        "core_claim_score": head_result["head_first_score"],
         "core_claim_reason": head_result["reason"],
         "experience_display": star_result["display"],
         "experience_score": star_result["score"],

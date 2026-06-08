@@ -27,6 +27,7 @@ def classify_head_first(text: str, topic_keywords: list[str] | None = None) -> d
             "matched_keywords": [],
             "bad_start_keywords": [],
             "head_first_score": 0,
+            "decision_boundary": base.get("decision_boundary", 50),
             "reason": "문장이 없습니다.",
         }
 
@@ -46,6 +47,7 @@ def classify_head_first(text: str, topic_keywords: list[str] | None = None) -> d
         "matched_keywords": matches,
         "bad_start_keywords": bad_matches,
         "head_first_score": base["head_first_score"],
+        "decision_boundary": base.get("decision_boundary", 50),
         "reason": base["reason"],
     }
 

@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LABELED_SENTENCE_PATH = PROJECT_ROOT / "data" / "labeled" / "jobkorea_star_full_labeled_sentence_dataset.csv"
 ARTIFACT_DIR = PROJECT_ROOT / "models" / "role02_star" / "artifacts"
 STAR_MODEL_PATH = ARTIFACT_DIR / "star_sentence_classifier.joblib"
+STAR_DECISION_THRESHOLD = 0.92
 
 
 def load_labeled_sentence_rows(path: Path = LABELED_SENTENCE_PATH) -> list[dict]:
@@ -103,7 +104,7 @@ def load_star_model(path: Path = STAR_MODEL_PATH) -> Pipeline:
     return joblib.load(path)
 
 
-def predict_sentence_labels(model: Pipeline, sentences: list[str], threshold: float = 0.5) -> list[dict]:
+def predict_sentence_labels(model: Pipeline, sentences: list[str], threshold: float = STAR_DECISION_THRESHOLD) -> list[dict]:
     texts = [normalize_text(sentence) for sentence in sentences]
     if not texts:
         return []
@@ -119,13 +120,14 @@ def predict_sentence_labels(model: Pipeline, sentences: list[str], threshold: fl
                 "sentence": sentence,
                 "checklist": checklist,
                 "confidence": confidence,
+                "decision_threshold": threshold,
                 "display": format_checklist(checklist),
             }
         )
     return results
 
 
-def score_star_with_model(text: str, model: Pipeline, threshold: float = 0.5) -> dict:
+def score_star_with_model(text: str, model: Pipeline, threshold: float = STAR_DECISION_THRESHOLD) -> dict:
     sentence_predictions = predict_sentence_labels(model, split_sentences(text), threshold=threshold)
     checklist = {
         code: any(prediction["checklist"].get(code, False) for prediction in sentence_predictions)
@@ -153,8 +155,9 @@ def score_star_with_model(text: str, model: Pipeline, threshold: float = 0.5) ->
         "evidence": evidence,
         "component_scores": component_scores,
         "max_score": 100,
+        "decision_threshold": threshold,
         "sentence_predictions": sentence_predictions,
-        "scoring_note": "라벨링된 STAR 문장 데이터셋으로 학습한 multi-label 모델 예측입니다.",
+        "scoring_note": f"라벨링된 STAR 문장 데이터셋으로 학습한 multi-label 모델 예측입니다. threshold={threshold}",
         "feedback": build_feedback(checklist, missing),
     }
 

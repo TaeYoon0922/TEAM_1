@@ -8,7 +8,7 @@ ROLE02가 전달하는 지표는 두 개다.
 
 | ROLE02 지표 | 의미 | 방식 |
 |---|---|---|
-| 핵심 주장 명확성 | 첫 문장에 핵심 메시지가 명확한지 | 규칙 기반 이진 판단 |
+| 핵심 주장 명확성 | 첫 문장에 핵심 메시지가 명확한지 | 규칙 기반 점수 + 이진 표시 |
 | 경험 구체성 | S/T/A/R 경험 요소가 드러나는지 | STAR 문장 라벨 기반 multi-label 모델 |
 
 ## 생성 함수
@@ -100,6 +100,7 @@ ROLE04가 자체 통합 스코어를 만들 때는 `role04_metrics`의 개별 �
 | first_sentence | string | 판단 대상 첫 문장 |
 | matched_keywords | list[string] | 첫 문장에서 탐지된 핵심 주장 키워드 |
 | bad_start_keywords | list[string] | 약한 시작 표현 |
+| decision_boundary | number | ✅ 판정 기준. 현재 50점 |
 | model_type | string | `rule_based_binary` |
 
 ### 경험 구체성 details
@@ -111,6 +112,7 @@ ROLE04가 자체 통합 스코어를 만들 때는 `role04_metrics`의 개별 �
 | component_scores | object | 각 요소별 25점 또는 0점 |
 | missing | list[string] | 빠진 STAR 요소 |
 | evidence | object | 요소별 근거 문장 |
+| decision_threshold | number | STAR 문장 예측 threshold. 현재 0.92 |
 | model_type | string | `trained_multilabel_sentence_classifier` |
 | scoring_note | string | 학습 모델 또는 fallback 설명 |
 
