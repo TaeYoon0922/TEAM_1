@@ -100,7 +100,7 @@ ROLE04가 자체 통합 스코어를 만들 때는 `role04_metrics`의 개별 �
 | first_sentence | string | 판단 대상 첫 문장 |
 | matched_keywords | list[string] | 첫 문장에서 탐지된 핵심 주장 키워드 |
 | bad_start_keywords | list[string] | 약한 시작 표현 |
-| decision_boundary | number | ✅ 판정 기준. 현재 50점 |
+| decision_boundary | number | ✅ 판정 기준. 현재 35점 |
 | model_type | string | `rule_based_binary` |
 
 ### 경험 구체성 details

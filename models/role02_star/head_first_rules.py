@@ -12,7 +12,7 @@ BAD_START_KEYWORDS = [
     "당시", "예전에", "고등학교",
 ]
 
-CORE_CLAIM_DECISION_BOUNDARY = 50
+CORE_CLAIM_DECISION_BOUNDARY = 35
 
 
 def split_sentences(text):
@@ -39,7 +39,7 @@ def analyze_head_first(text):
     first = sentences[0]
     head_score = sum(1 for keyword in HEAD_KEYWORDS if keyword in first)
     bad_score = sum(1 for keyword in BAD_START_KEYWORDS if keyword in first)
-    head_first_score = calc_core_claim_score(head_score, bad_score)
+    head_first_score = calc_core_claim_score(head_score, bad_score, first)
     is_clear = int(head_first_score >= CORE_CLAIM_DECISION_BOUNDARY)
 
     return {
@@ -60,6 +60,8 @@ def analyze_head_first(text):
     }
 
 
-def calc_core_claim_score(head_score: int, bad_score: int) -> int:
+def calc_core_claim_score(head_score: int, bad_score: int, first_sentence: str = "") -> int:
+    if head_score == 0 and bad_score == 0 and len(first_sentence.strip()) >= 40:
+        return CORE_CLAIM_DECISION_BOUNDARY
     score = 30 + min(head_score, 4) * 20 - min(bad_score, 3) * 20
     return max(0, min(100, score))

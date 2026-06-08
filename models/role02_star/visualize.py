@@ -75,6 +75,55 @@ def plot_role02_summary(head_binary: dict, star_result: dict, numbers: dict, out
     return output_path
 
 
+def plot_core_claim_boundary(head_binary: dict, output_path: str | Path) -> Path:
+    """Save a core-claim score chart with its decision boundary."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    has_korean_font = set_korean_font()
+
+    score = int(head_binary.get("head_first_score", 0))
+    boundary = int(head_binary.get("decision_boundary", 35))
+    pass_status = bool(head_binary.get("is_head_first", 0))
+
+    labels = ["Core claim score", "Decision boundary"]
+    title = "Core claim clarity"
+    status_title = "PASS" if pass_status else "MISS"
+    if has_korean_font:
+        labels = ["핵심 주장 점수", "판정 기준"]
+        title = "핵심 주장 명확성"
+        status_title = "충족" if pass_status else "미충족"
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [2.4, 1]})
+    ax_bar, ax_gauge = axes
+
+    colors = ["#55A868" if pass_status else "#C44E52", "#767676"]
+    bars = ax_bar.bar(labels, [score, boundary], color=colors, width=0.5)
+    for bar, value in zip(bars, [score, boundary]):
+        ax_bar.text(bar.get_x() + bar.get_width() / 2, value + 3, str(value), ha="center", fontsize=11)
+    ax_bar.axhline(boundary, color="#333333", linestyle="--", linewidth=1.2, alpha=0.8)
+    ax_bar.set_ylim(0, 110)
+    ax_bar.set_ylabel("score")
+    ax_bar.set_title(title)
+    ax_bar.grid(axis="y", alpha=0.25)
+    ax_bar.spines[["top", "right"]].set_visible(False)
+
+    ax_gauge.barh([0], [100], color="#eeeeee", height=0.38)
+    ax_gauge.barh([0], [score], color=colors[0], height=0.38)
+    ax_gauge.axvline(boundary, color="#333333", linestyle="--", linewidth=1.4)
+    ax_gauge.text(score, 0.22, f"{score}", ha="center", va="bottom", fontsize=10)
+    ax_gauge.text(boundary, -0.26, f"boundary {boundary}", ha="center", va="top", fontsize=9)
+    ax_gauge.set_xlim(0, 100)
+    ax_gauge.set_yticks([])
+    ax_gauge.set_title(status_title)
+    ax_gauge.spines[["top", "right", "left"]].set_visible(False)
+    ax_gauge.grid(axis="x", alpha=0.2)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    return output_path
+
+
 def plot_role02_requirement_status(
     head_binary: dict,
     star_result: dict,

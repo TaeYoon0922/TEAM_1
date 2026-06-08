@@ -102,7 +102,7 @@ def build_core_claim_metric(head: dict) -> dict:
             "first_sentence": head.get("first_sentence", ""),
             "matched_keywords": head.get("matched_keywords", []),
             "bad_start_keywords": head.get("bad_start_keywords", []),
-            "decision_boundary": head.get("decision_boundary", 50),
+            "decision_boundary": head.get("decision_boundary", 35),
             "model_type": "rule_based_binary",
         },
     }
