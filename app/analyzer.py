@@ -91,6 +91,11 @@ VAGUE_WORDS = [
     "성실", "적극", "최대한",
 ]
 
+MOCK_FIRST_SENTENCE_SIGNALS = [
+    "결과", "성과", "배웠", "기여", "해결",
+    "개선", "달성", "줄였", "높였", "만들", "완성", "입사",
+]
+
 NUMBER_PATTERN = r"\d|%|명|회|개월|년|배"
 
 
@@ -320,29 +325,33 @@ def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
 # ── ROLE03 영역 ──────────────────────────────────────────────
 
 def score_ambiguity(text: str) -> MetricResult:
-    """표현 명료성 — 높을수록 명확 (0~100)."""
-    if detect_hedge_expressions is not None:
-        result = detect_hedge_expressions(text)
-        score     = result["score"]
-        hit_count = result["hit_count"]
-        feedback  = result["summary"]
-        if result["feedback_items"]:
-            top = result["feedback_items"][0]
-            feedback += f" (예: '{top['original']}' {top['suggestion']})"
-        return MetricResult(
-            label=f"표현 명료성 — 모호 표현 {hit_count}개 발견",
-            score=score, level=level_from_score(score), feedback=feedback,
-        )
-    # 폴백: higher=better 유지를 위해 반전
-    vague_count = count_keywords(text, VAGUE_WORDS)
-    number_count = len(re.findall(NUMBER_PATTERN, text))
-    sentence_count = max(len(split_sentences(text)), 1)
-    raw = clamp(vague_count * 9 - number_count * 5 + (18 if vague_count / sentence_count >= 1 else 0))
-    score = clamp(100 - raw)
-    feedback = ("추상 표현이 적고 구체성이 비교적 좋습니다." if score >= 55
-                else "추상적인 표현이 많습니다. 수치, 기간, 대상, 행동 단위로 바꾸면 설득력이 올라갑니다.")
-    return MetricResult("표현 명료성", score, level_from_score(score), feedback)
+    if detect_hedge_expressions is None:
+        return MetricResult("표현 명료성", 50, "보통", "hedge_detector 연결 실패.")
 
+    result = detect_hedge_expressions(text)
+    score     = result["score"]
+    hit_count = result["hit_count"]
+
+    token_count = max(len(text.split()), 1)
+    density = hit_count / token_count * 100
+
+    if density >= 5.0:
+        level    = "위험"
+        feedback = f"모호 표현이 {hit_count}개 발견됐습니다. 수치·행동 중심으로 구체화하세요."
+    elif hit_count >= 2:
+        level    = "보통"
+        feedback = f"모호 표현 {hit_count}개가 있습니다. 일부 표현을 더 구체적으로 바꾸면 좋습니다."
+    else:
+        level    = "우수"
+        feedback = "표현이 구체적이고 명확합니다."
+
+
+    return MetricResult(
+        label    = f"표현 명료성 — 모호 표현 {hit_count}개 발견",
+        score    = score,
+        level    = level,
+        feedback = feedback,
+    )
 
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
@@ -556,7 +565,6 @@ def _role4_sentence_comment(sentence: str):
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
-        has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
         # ── ROLE4: 기여 vs 자기중심 판단 ──────────────────────
         role4_comment, role4_tag = _role4_sentence_comment(sentence)
