@@ -542,9 +542,7 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
             else:
                 continue
         else:
-<<<<<<< HEAD
             comment = "hedge_detector 연결 실패 — 분석 불가"
-=======
             vague_hits = [w for w in VAGUE_WORDS if w in sentence]
             if vague_hits and not has_number:
                 comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
@@ -552,7 +550,6 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
                 comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
             else:
                 continue
->>>>>>> origin/dev
 
         feedback.append({"sentence": sentence, "comment": comment})
     return feedback
