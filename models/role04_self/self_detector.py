@@ -18,28 +18,29 @@ from contribution_dict_v1 import (
 SELF_DICT = {
     "A_subject": {
         "label":   "1인칭 주어",
-        "weight":  0.8,
+        # 1인칭 주어(저는/제가)는 한국어에서 문법적으로 불가피 → 자기중심성 지표로서 가중치 최소화
+        "weight":  0.1,
         "tags":    {"NP"},
         "lemmas":  SELF_SUBJECT_LEMMAS,
         "terms":   SELF_SUBJECT,
     },
     "B_emotion": {
         "label":   "감정 동사",
-        "weight":  1.2,
+        "weight":  1.8,   # 느꼈다/힘들었다/뿌듯했다 → 강한 자기중심 지표
         "tags":    {"VV", "VV-I", "VA"},
         "lemmas":  SELF_EMOTION_STEMS,
         "terms":   SELF_EMOTION_VERB,
     },
     "C_cognition": {
         "label":   "인식 동사",
-        "weight":  1.0,
+        "weight":  0.8,   # 배웠다/생각했다는 B/C 텍스트에도 자주 등장 → 가중치 완화
         "tags":    {"VV", "VV-I"},
         "lemmas":  SELF_COGNITION_STEMS,
         "terms":   SELF_COGNITION_VERB,
     },
     "D_trait": {
         "label":   "자기특성 명사",
-        "weight":  1.3,
+        "weight":  2.0,   # 열정/책임감/끈기 주장 → 가장 강한 자기중심 지표
         "tags":    {"NNG", "NNP"},
         "lemmas":  SELF_TRAIT_NOUNS,
         "terms":   SELF_TRAIT_NOUN,
@@ -148,7 +149,7 @@ def detect_self_language(text: str) -> dict:
     contrib_hits = _deduplicate(contrib_hits)
 
     self_score = _calc_self_score(text, self_hits)
-    contrib_score = _calc_contribution_score(text, contrib_hits, number_hits)
+    contrib_score = _calc_contribution_score(contrib_hits, number_hits)
     grade, summary = _grade(self_score, contrib_score)
 
     all_hits = self_hits + contrib_hits
@@ -263,33 +264,62 @@ def _deduplicate(hits: list) -> list:
 
 # ── 점수 계산 ─────────────────────────────────────────────────
 
+def _sentence_count(text: str) -> int:
+    """
+    한국어 자소서 문장 수 추정.
+    '~니다' 어미(합니다/있습니다/했습니다 등)를 세고, 보조로 문장부호를 추가한다.
+    최솟값 1을 보장한다.
+    """
+    nida = len(re.findall(r'니다', text))
+    punct = len(re.findall(r'[.!?]\s', text))
+    return max(nida + punct, 1)
+
+
 def _calc_self_score(text: str, hits: list) -> int:
-    """자기중심 점수: 높을수록 자기중심 표현 많음 (0~100)"""
-    token_count = max(len(text.split()), 1)
+    """
+    자기중심 점수 (0~100).
+    '문장당 밀도' 기준 — 긴 텍스트에서 일관되게 자기표현이 잦을수록 높음.
+    """
+    sent = _sentence_count(text)
     weighted_sum = sum(h["weight"] for h in hits)
-    density = weighted_sum / token_count
-    return min(100, round(density * 50))
+    density = weighted_sum / sent
+    return min(100, round(density * 20))
 
 
-def _calc_contribution_score(text: str, hits: list, number_hits: list) -> int:
-    """기여중심 점수: 높을수록 기여중심 표현 많음 (0~100)"""
-    token_count = max(len(text.split()), 1)
+def _calc_contribution_score(hits: list, number_hits: list) -> int:
+    """
+    기여중심 점수 (0~100).
+    '절대 히트 수' 기준 — 문단 길이에 상관없이 결과 발화가 몇 개 있는지로 판단.
+    (자소서는 긴 서사 속에 1~3개의 핵심 성과문이 묻혀있는 구조)
+    """
     weighted_sum = sum(h["weight"] for h in hits)
-    number_bonus = len(number_hits) * 1.5
-    density = (weighted_sum + number_bonus) / token_count
-    return min(100, round(density * 40))
+    number_bonus = len(number_hits) * 2.0   # 구체 수치는 강한 기여 증거
+    raw = weighted_sum + number_bonus
+    return min(100, round(raw * 5))
 
 
 def _grade(self_score: int, contrib_score: int) -> tuple:
-    diff = contrib_score - self_score
-    if diff >= 30:
+    """
+    self_score(밀도 기반) vs contrib_score(절대 기반) 조합 판정.
+
+    A  contrib >= 25           : 결과 발화 매우 풍부
+    B  contrib >= 12           : 결과 발화 존재
+    D  self >= 8 and contrib <= 8 : 자기표현 밀도 높고 결과 희박
+       or self >= 16           : 자기표현 극단적으로 높음
+    C  그 외                   : 혼재
+    """
+    if contrib_score >= 80:
         return "A", "기여 중심 표현이 뚜렷합니다. 성과가 잘 드러납니다."
-    elif diff >= 10:
+    elif contrib_score >= 8:
         return "B", "기여 표현이 우세하나 자기중심 표현이 일부 섞여 있습니다."
-    elif diff >= -10:
-        return "C", "자기중심·기여 표현이 혼재합니다. 수치와 결과 중심으로 보완하세요."
-    else:
+    elif (
+        (self_score >= 4 and contrib_score == 0)   # 자기표현 있고 기여 증거 전무
+        or (self_score >= 8 and contrib_score <= 4) # 자기 밀도 높고 기여 증거 거의 없음
+        or self_score >= 16                         # 자기표현 극단적
+    ):
         return "D", "자기중심 표현이 지배적입니다. 결과·수치·외부 주어로 재작성하세요."
+    else:
+        return "C", "자기중심·기여 표현이 혼재합니다. 수치와 결과 중심으로 보완하세요."
 
 
 # ── 출력 ─────────────────────────────────────────────────────
