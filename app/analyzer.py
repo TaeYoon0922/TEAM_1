@@ -346,24 +346,39 @@ def score_ambiguity(text: str) -> MetricResult:
 
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
+_GRADE_TO_LEVEL = {"A": "높음", "B": "높음", "C": "주의", "D": "낮음"}
+
+
 def score_self_centered(text: str) -> MetricResult:
-    """자기표현 차별성 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩."""
+    """결과중심 표현 비중 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩.
+
+    score : contribution_score - self_score 를 0~100으로 정규화 (높을수록 기여 중심)
+    level : grade(A/B/C/D) 기반 — A/B=높음, C=주의, D=낮음
+    """
     if detect_self_language is None:
         return MetricResult("자기표현 차별성", 50, "주의", "self_detector 연결 실패.")
 
     result = detect_self_language(text)
-    dict_score = clamp(result["self_score"])
+
+    # diff 기반 score: contribution - self 를 0~100 범위로 변환
+    # diff 범위 -100~+100 → (diff + 100) / 2 로 정규화
+    diff = result["contribution_score"] - result["self_score"]
+    dict_score = clamp(round((diff + 100) / 2))
 
     # dependency_parser가 있으면 의존 구문 자기중심 비율을 40% 가중 합산
+    # dep_score는 self_ratio 기반(높을수록 자기중심) → diff 기반 점수와 방향 맞춤
     if dep_parse_paragraph is not None:
         try:
             dep = dep_parse_paragraph(text)
-            dep_score = clamp(round(dep["self_ratio"] * 100))
-            score = clamp(round(dict_score * 0.6 + dep_score * 0.4))
+            dep_contribution = clamp(round((1 - dep["self_ratio"]) * 100))
+            score = clamp(round(dict_score * 0.6 + dep_contribution * 0.4))
         except Exception:
             score = dict_score
     else:
         score = dict_score
+
+    grade = result["grade"]
+    level = _GRADE_TO_LEVEL.get(grade, "주의")
 
     feedback = result["summary"]
     if result["feedback_items"]:
@@ -371,14 +386,14 @@ def score_self_centered(text: str) -> MetricResult:
         feedback += f" (예: '{top['original']}' {top['suggestion']})"
 
     return MetricResult(
-        label="자기표현 차별성",
+        label="결과중심 표현 비중",
         score=score,
-        level=risk_level_from_score(score),
+        level=level,
         feedback=feedback,
         details={
             "self_score":             result["self_score"],
             "contribution_score":     result["contribution_score"],
-            "grade":                  result["grade"],
+            "grade":                  grade,
             "self_hit_count":         result["self_hit_count"],
             "contribution_hit_count": result["contribution_hit_count"],
             "highlighted_html":       result["highlighted_html"],
