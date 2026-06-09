@@ -1,9 +1,9 @@
 """단계 1: kiwipiepy로 명사만 추출해서 저장 (sklearn 미사용)"""
 import sys, os, pickle, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-sys.path.insert(0, os.path.dirname(__file__))
-
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from kiwipiepy import Kiwi
 from models.role05_match.question_clusterer import load_questions, _CACHE_DIR
 

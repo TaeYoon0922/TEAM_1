@@ -15,7 +15,7 @@ from pathlib import Path
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.modules.setdefault("sentence_transformers", None)  # type: ignore
 
 # ── 경로 ──────────────────────────────────────────────────────────────────────

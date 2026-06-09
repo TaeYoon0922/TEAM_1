@@ -64,8 +64,12 @@ INDICATORS = [
     "문장 완성도",       # 문장 구조·가독성            ← 규칙(길이·종결어 반복)
 ]
 
-# 문항 적합성 점수가 이 미만이면 나머지 분석 중단
-GATE_THRESHOLD = 20
+# 문항 적합성 점수가 이 미만이면 나머지 분석 중단.
+# 라벨 데이터 300건(EXCELLENT/MEDIUM/OFF_TOPIC 각 100) 기준 hybrid 점수가
+# OFF_TOPIC[~32.7]과 ON_TOPIC[40.1~] 구간으로 완전히 분리되어, 그 정중앙(최대 마진)을 채택.
+# 동문서답 검출 100% / 정상 답변 오차단 0%를 만족하며 분포 변동에 가장 강건.
+# 재산출: scripts/calibrate_relevance_gate.py
+GATE_THRESHOLD = 36
 
 # ROLE02 키워드 (두괄식·STAR 폴백)
 FIRST_SENTENCE_SIGNALS = [

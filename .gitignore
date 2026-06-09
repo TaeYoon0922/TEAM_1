@@ -27,3 +27,6 @@ models/role05_match/cache/*
 # ROLE01 대용량 데이터 산출물 (앱 런타임 불필요, GitHub 100MB 초과)
 data/raw/*.csv
 data/raw/*.xlsx
+
+# 군집 재학습 시 생기는 초안 파일 (운영 cluster_map.json은 직접 검토 후 머지해야 함)
+models/role05_match/cluster_map.draft.json
