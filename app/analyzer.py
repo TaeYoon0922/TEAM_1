@@ -87,6 +87,11 @@ VAGUE_WORDS = [
     "성실", "적극", "최대한",
 ]
 
+MOCK_FIRST_SENTENCE_SIGNALS = [
+    "결과", "성과", "배웠", "기여", "해결",
+    "개선", "달성", "줄였", "높였", "만들", "완성", "입사",
+]
+
 NUMBER_PATTERN = r"\d|%|명|회|개월|년|배"
 
 
@@ -316,29 +321,33 @@ def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
 # ── ROLE03 영역 ──────────────────────────────────────────────
 
 def score_ambiguity(text: str) -> MetricResult:
-    """표현 명료성 — 높을수록 명확 (0~100)."""
-    if detect_hedge_expressions is not None:
-        result = detect_hedge_expressions(text)
-        score     = result["score"]
-        hit_count = result["hit_count"]
-        feedback  = result["summary"]
-        if result["feedback_items"]:
-            top = result["feedback_items"][0]
-            feedback += f" (예: '{top['original']}' {top['suggestion']})"
-        return MetricResult(
-            label=f"표현 명료성 — 모호 표현 {hit_count}개 발견",
-            score=score, level=level_from_score(score), feedback=feedback,
-        )
-    # 폴백: higher=better 유지를 위해 반전
-    vague_count = count_keywords(text, VAGUE_WORDS)
-    number_count = len(re.findall(NUMBER_PATTERN, text))
-    sentence_count = max(len(split_sentences(text)), 1)
-    raw = clamp(vague_count * 9 - number_count * 5 + (18 if vague_count / sentence_count >= 1 else 0))
-    score = clamp(100 - raw)
-    feedback = ("추상 표현이 적고 구체성이 비교적 좋습니다." if score >= 55
-                else "추상적인 표현이 많습니다. 수치, 기간, 대상, 행동 단위로 바꾸면 설득력이 올라갑니다.")
-    return MetricResult("표현 명료성", score, level_from_score(score), feedback)
+    if detect_hedge_expressions is None:
+        return MetricResult("표현 명료성", 50, "보통", "hedge_detector 연결 실패.")
 
+    result = detect_hedge_expressions(text)
+    score     = result["score"]
+    hit_count = result["hit_count"]
+
+    token_count = max(len(text.split()), 1)
+    density = hit_count / token_count * 100
+
+    if density >= 5.0:
+        level    = "위험"
+        feedback = f"모호 표현이 {hit_count}개 발견됐습니다. 수치·행동 중심으로 구체화하세요."
+    elif hit_count >= 2:
+        level    = "보통"
+        feedback = f"모호 표현 {hit_count}개가 있습니다. 일부 표현을 더 구체적으로 바꾸면 좋습니다."
+    else:
+        level    = "우수"
+        feedback = "표현이 구체적이고 명확합니다."
+
+
+    return MetricResult(
+        label    = f"표현 명료성 — 모호 표현 {hit_count}개 발견",
+        score    = score,
+        level    = level,
+        feedback = feedback,
+    )
 
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
@@ -503,28 +512,20 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
-        has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
         if detect_hedge_expressions is not None:
             result = detect_hedge_expressions(sentence)
             feedback_items = result["feedback_items"]
+
             if feedback_items:
-                suggestions = [f"'{fb['original']}' {fb['suggestion']}" for fb in feedback_items]
-                comment = " / ".join(suggestions)
-            elif has_number:
-                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
-            elif index == 1 and not any(s in sentence for s in FIRST_SENTENCE_SIGNALS):
+                terms = [fb['original'] for fb in feedback_items]
+                comment = f"'{', '.join(terms)}' 표현이 모호합니다. 수치나 구체적 행동으로 바꿔보세요."
+            elif index == 1 and not any(s in sentence for s in MOCK_FIRST_SENTENCE_SIGNALS):
                 comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
             else:
-                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+                continue
         else:
-            vague_hits = [w for w in VAGUE_WORDS if w in sentence]
-            if vague_hits and not has_number:
-                comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
-            elif has_number:
-                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
-            else:
-                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+            comment = "hedge_detector 연결 실패 — 분석 불가"
 
         feedback.append({"sentence": sentence, "comment": comment})
     return feedback

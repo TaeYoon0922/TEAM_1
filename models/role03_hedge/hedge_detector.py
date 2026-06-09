@@ -36,7 +36,7 @@ STEM_HEDGE_DICT = {
     "D_emotion": {
         "label": "감정·인식형 동사",
         "weight": 1.0,
-        "stems": ["생각하다"]
+        "stems": ["생각"]
     },
     "E_uncertainty": {
         "label": "불확실성 표지어",
@@ -84,7 +84,7 @@ FEEDBACK_MAP = {
     "발전":       "→ 수치로 얼마나 발전했는지 서술하세요",
 
     # D 감정·인식형
-    "생각하다":   "→ '~입니다'로 단정하세요",
+    "생각":   "→ '~입니다'로 단정하세요",
 
     # E 불확실성 표지어
     "같다":       "→ '~했습니다 / ~입니다'로 단정하세요",
@@ -148,11 +148,8 @@ def _find_hits_konlpy(text: str) -> list:
                         "end":      m.end(),
                     })
 
-    # KoNLPy가 잘못 분리하는 예외 표현 — 문자열 직접 매칭
     EXCEPTION_TERMS = {
         "깨달": ("D_emotion", "감정·인식형 동사", 1.2),
-        "하고 싶": ("E_uncertainty", "불확실성 표지어", 1.5),
-        "것 같": ("E_uncertainty", "불확실성 표지어", 1.5),
     }
     for term, (cat_key, label, weight) in EXCEPTION_TERMS.items():
         for m in re.finditer(re.escape(term), text):
