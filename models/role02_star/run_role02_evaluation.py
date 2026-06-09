@@ -21,6 +21,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from models.role02_star.star_label_model import (
     LABELED_SENTENCE_PATH,
     STAR_CODES,
+    STAR_DECISION_THRESHOLD,
     STAR_MODEL_PATH,
     load_labeled_sentence_rows,
     parse_star_label,
@@ -35,6 +36,9 @@ METRICS_PATH = PROJECT_ROOT / "data" / "processed" / "role02_eval_metrics.csv"
 FIGURE_DIR = PROJECT_ROOT / "models" / "role02_star" / "figures"
 METRICS_FIGURE_PATH = FIGURE_DIR / "role02_precision_recall_f1.png"
 CONFUSION_FIGURE_PATH = FIGURE_DIR / "role02_confusion_matrices.png"
+THRESHOLD_SUFFIX = str(int(round(STAR_DECISION_THRESHOLD * 100))).zfill(2)
+METRICS_THRESHOLD_FIGURE_PATH = FIGURE_DIR / f"role02_precision_recall_f1_threshold_{THRESHOLD_SUFFIX}.png"
+CONFUSION_THRESHOLD_FIGURE_PATH = FIGURE_DIR / f"role02_confusion_matrices_threshold_{THRESHOLD_SUFFIX}.png"
 
 
 def main() -> None:
@@ -53,6 +57,8 @@ def main() -> None:
     write_csv(METRICS_PATH, metric_rows)
     plot_metric_bars(metric_rows, METRICS_FIGURE_PATH)
     plot_confusion_matrices(metric_rows, CONFUSION_FIGURE_PATH)
+    plot_metric_bars(metric_rows, METRICS_THRESHOLD_FIGURE_PATH)
+    plot_confusion_matrices(metric_rows, CONFUSION_THRESHOLD_FIGURE_PATH)
 
     train_urls = {row["url"] for row in train_rows}
     test_urls = {row["url"] for row in test_rows}
@@ -64,6 +70,8 @@ def main() -> None:
     print(f"평가 지표: {METRICS_PATH.relative_to(PROJECT_ROOT)}")
     print(f"PRF 시각화: {METRICS_FIGURE_PATH.relative_to(PROJECT_ROOT)}")
     print(f"Confusion matrix: {CONFUSION_FIGURE_PATH.relative_to(PROJECT_ROOT)}")
+    print(f"Threshold PRF 시각화: {METRICS_THRESHOLD_FIGURE_PATH.relative_to(PROJECT_ROOT)}")
+    print(f"Threshold confusion matrix: {CONFUSION_THRESHOLD_FIGURE_PATH.relative_to(PROJECT_ROOT)}")
     print()
     print_table(metric_rows)
 

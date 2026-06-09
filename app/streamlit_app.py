@@ -29,9 +29,9 @@ METRIC_DESCRIPTIONS = {
         "detail": "헤지 표현·추상어가 적고 수치·행동 중심일수록 명료합니다.",
         "check": "열심히, 다양한, 성장 같은 추상 표현 대신 수치·행동 중심 표현이 쓰였는지 확인합니다.",
     },
-    "자기표현 차별성": {
-        "summary": "본인만의 경험과 관점이 드러나는지 보는 지표입니다.",
-        "detail": "제가, 저는 중심의 서술만 반복되면 팀·고객·조직에 준 영향과 본인만의 차별점이 약해 보입니다.",
+    "결과중심 표현 비중": {
+        "summary": "감정·내면 묘사보다 결과·수치·외부 변화 중심으로 쓰였는지 보는 지표입니다.",
+        "detail": "제가, 저는 중심의 서술만 반복되면 팀·고객·조직에 준 영향이 약해 보입니다. 수치와 결과 동사가 많을수록 높게 평가됩니다.",
         "check": "내 행동 이후 팀, 고객, 조직에 어떤 변화가 있었는지 확인합니다.",
     },
     "문장 완성도": {
@@ -297,7 +297,7 @@ def inject_styles() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="자소서 분석", page_icon="📝", layout="wide")
+    st.set_page_config(page_title="TEAM_1 자소서 분석", layout="wide")
     inject_styles()
     init_state()
     render_sidebar()
@@ -324,7 +324,7 @@ def init_state() -> None:
 
 def render_sidebar() -> None:
     with st.sidebar:
-        st.header("자소서 분석")
+        st.header("TEAM_1 자소서 분석")
         if st.button("새 분석 시작", use_container_width=True):
             st.session_state.cover_letter_text = ""
             st.session_state.question_text = ""
@@ -349,7 +349,7 @@ def render_topbar(title: str, status: str) -> None:
 
 
 def render_analysis_page() -> None:
-    render_topbar("자소서 분석", "질문 적합도 포함 피드백")
+    render_topbar("TEAM_1 자소서 분석", "질문 적합도 포함 피드백")
 
     text = st.session_state.cover_letter_text.strip()
     question = st.session_state.question_text.strip()
@@ -394,9 +394,10 @@ def render_history_page() -> None:
                 st.rerun()
         with cols[1]:
             if st.button("결과 보기", key=f'view_{item["id"]}'):
-                render_assistant_message(
-                    analyze_cover_letter(item["text"], item.get("question", ""))
-                )
+                st.session_state.cover_letter_text = item["text"]
+                st.session_state.question_text = item.get("question", "")
+                st.session_state.page = "자소서 분석"
+                st.rerun()
 
     st.divider()
     if st.button("기록 지우기", use_container_width=True):
@@ -425,7 +426,7 @@ def render_metric_page() -> None:
                     st.caption(info["check"])
 
     with st.expander("결과는 어떻게 보나요?"):
-        st.write("점수 대신, 각 지표별로 무엇을 어떻게 고치면 좋을지 피드백만 보여줍니다.")
+        st.write("점수 대신, 각 지표별로 무엇을 어떻게 고치면 좋을지 피드백을 보여줍니다.")
         st.write("질문 유형(군집)에 따라 일부 지표는 '해당 없음'으로 빠질 수 있습니다.")
 
 
@@ -436,7 +437,7 @@ def render_intro_message() -> None:
         '<div class="bubble">'
         '<h1>자소서 문장을 붙여넣어 주세요.</h1>'
         '<p>질문과 자소서 답변을 붙여넣으면 문항 적합성, 핵심 주장 명확성, 경험 구체성, '
-        '표현 명료성, 자기표현 차별성, 문장 완성도 6가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.</p>'
+        '표현 명료성, 결과중심 표현 비중, 문장 완성도 6가지 관점에서 바로 고칠 수 있는 피드백으로 정리해드립니다.</p>'
         '</div>'
         '</div>',
         unsafe_allow_html=True,
@@ -544,11 +545,11 @@ def indicator_cards_html(result: AnalysisResult) -> str:
 
 
 def level_color(level: str) -> str:
-    if level in ("우수", "낮음"):
+    if level in ("우수", "높음"):
         return "#10a37f"
     if level in ("보통", "주의", "분석 보류"):
         return "#f59e0b"
-    return "#dc2626"  # 보완 필요 / 높음 / 분석 불가 등
+    return "#dc2626"  # 보완 필요 / 낮음 / 분석 불가 등
 
 
 def render_feedback(result: AnalysisResult) -> None:

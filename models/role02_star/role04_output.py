@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from models.role02_star.head_first_classifier import classify_head_first
 from models.role02_star.star_label_model import (
     STAR_CODES,
+    STAR_DECISION_THRESHOLD,
     STAR_MODEL_PATH,
     load_star_model,
     score_star_with_model,
@@ -76,7 +77,12 @@ def score_experience(answer: str, star_model: Any | None = None) -> dict:
     if star_model is not None:
         return score_star_with_model(answer, star_model)
     if STAR_MODEL_PATH.exists():
-        return score_star_with_model(answer, load_star_model(STAR_MODEL_PATH))
+        try:
+            return score_star_with_model(answer, load_star_model(STAR_MODEL_PATH))
+        except Exception as exc:
+            fallback = score_star_completeness(answer)
+            fallback["scoring_note"] = f"학습 모델 artifact 로드 실패로 규칙 기반 STAR scorer를 사용했습니다: {type(exc).__name__}"
+            return fallback
     fallback = score_star_completeness(answer)
     fallback["scoring_note"] = "학습 모델 artifact가 없어 규칙 기반 STAR scorer를 사용했습니다."
     return fallback
@@ -96,6 +102,7 @@ def build_core_claim_metric(head: dict) -> dict:
             "first_sentence": head.get("first_sentence", ""),
             "matched_keywords": head.get("matched_keywords", []),
             "bad_start_keywords": head.get("bad_start_keywords", []),
+            "decision_boundary": head.get("decision_boundary", 35),
             "model_type": "rule_based_binary",
         },
     }
@@ -119,6 +126,7 @@ def build_experience_metric(star: dict) -> dict:
             "component_scores": star.get("component_scores", {}),
             "missing": star.get("missing", []),
             "evidence": star.get("evidence", {}),
+            "decision_threshold": star.get("decision_threshold", STAR_DECISION_THRESHOLD),
             "model_type": "trained_multilabel_sentence_classifier",
             "scoring_note": star.get("scoring_note", ""),
         },

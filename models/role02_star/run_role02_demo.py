@@ -11,6 +11,7 @@ from models.role02_star.head_first_rules import analyze_head_first
 from models.role02_star.head_first_classifier import classify_head_first
 from models.role02_star.star_label_model import (
     LABELED_SENTENCE_PATH,
+    STAR_DECISION_THRESHOLD,
     STAR_MODEL_PATH,
     load_labeled_sentence_rows,
     save_star_model,
@@ -18,6 +19,7 @@ from models.role02_star.star_label_model import (
     train_star_sentence_model,
 )
 from models.role02_star.visualize import (
+    plot_core_claim_boundary,
     plot_role02_requirement_status,
     plot_role02_summary,
     plot_star_radar,
@@ -54,6 +56,7 @@ answer_text = " ".join(row["answer"] for row in demo_rows)
 head = analyze_head_first(answer_text)
 head_binary = classify_head_first(answer_text)
 star = score_star_with_model(answer_text, star_model)
+core_claim_path = plot_core_claim_boundary(head_binary, FIGURE_DIR / "role02_demo_core_claim_boundary.png")
 star_radar_path = plot_star_radar(star, FIGURE_DIR / "role02_demo_star_radar.png")
 summary_path = plot_role02_summary(head_binary, star, {}, FIGURE_DIR / "role02_demo_summary.png")
 status_path = plot_role02_requirement_status(
@@ -66,10 +69,12 @@ status_path = plot_role02_requirement_status(
 print(f"[데이터셋] {DATASET_PATH.relative_to(PROJECT_ROOT)}")
 print(f"[STAR 라벨셋] {LABELED_SENTENCE_PATH.relative_to(PROJECT_ROOT)}")
 print(f"STAR 학습 문장 수: {len(labeled_rows)}")
+print(f"STAR decision threshold: {STAR_DECISION_THRESHOLD}")
 print(f"STAR 모델: {STAR_MODEL_PATH.relative_to(PROJECT_ROOT)}")
 print(f"전체 행 수: {len(rows)}")
 print(f"답변 있는 행 수: {len(answer_rows)}")
 print(f"분석 대상 답변 수: {len(demo_rows)}")
+print(f"핵심 주장 명확성 그래프: {core_claim_path.relative_to(PROJECT_ROOT)}")
 print(f"STAR radar: {star_radar_path.relative_to(PROJECT_ROOT)}")
 print(f"분석 요약 그래프: {summary_path.relative_to(PROJECT_ROOT)}")
 print(f"모델 충족 여부 그래프: {status_path.relative_to(PROJECT_ROOT)}")
@@ -80,7 +85,7 @@ print_table(
         {
             "지표": "핵심 주장 명확성",
             "결과": head["display"],
-            "점수": head["is_head_first"],
+            "점수": head["head_first_score"],
             "근거/피드백": head["reason"],
         },
         {
@@ -134,7 +139,7 @@ def score_answer_row(row, index):
         "question_no": row.get("question_no", ""),
         "question": row.get("question", ""),
         "core_claim_display": head_result["display"],
-        "core_claim_score": head_result["is_head_first"],
+        "core_claim_score": head_result["head_first_score"],
         "core_claim_reason": head_result["reason"],
         "experience_display": star_result["display"],
         "experience_score": star_result["score"],

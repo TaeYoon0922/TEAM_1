@@ -28,6 +28,7 @@ _ROOT = _DIR.parent.parent
 _DATA_PATH = _ROOT / "data" / "processed" / "jobkorea_train.csv"
 _CACHE_DIR = _DIR / "cache"
 _CLUSTER_MAP_PATH = _DIR / "cluster_map.json"
+_CLUSTER_MAP_DRAFT_PATH = _DIR / "cluster_map.draft.json"
 
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -430,10 +431,15 @@ def get_evaluation_models(cluster_id: int, cluster_map: dict = None) -> dict:
 
 def save_cluster_map(cluster_info: dict, k: int, path: str = None):
     """
-    군집화 결과로 cluster_map.json 초안 생성.
-    name / models / star_required 는 사용자가 직접 수정해야 함.
+    군집화 결과로 cluster_map 초안을 별도 파일(cluster_map.draft.json)에 생성.
+
+    주의: 운영 중인 cluster_map.json은 군집 이름·indicators가 이미 큐레이션되어
+    analyzer._rule_cluster_override 등과 인덱스가 맞춰져 있어, 재학습 시 자동
+    덮어쓰면 그 정합성이 깨진다. 그래서 기본 출력 경로는 cluster_map.json이 아닌
+    초안 파일이며, name / indicators / star_required는 대표 질문을 보고 직접
+    cluster_map.json에 반영해야 한다.
     """
-    p = Path(path or _CLUSTER_MAP_PATH)
+    p = Path(path or _CLUSTER_MAP_DRAFT_PATH)
 
     cmap = {}
     for i in range(k):
@@ -441,18 +447,18 @@ def save_cluster_map(cluster_info: dict, k: int, path: str = None):
         info = cluster_info.get(key, {})
         cmap[key] = {
             "name": f"군집{i}_이름미정",
-            "models": ["star", "hedge"],
+            "indicators": [],
             "star_required": True,
-            "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+            "description": "대표 질문을 보고 name/indicators/star_required를 정해 cluster_map.json에 직접 반영하세요",
             "representative_questions": info.get("representative_questions", [])[:3],
         }
 
     with open(p, "w", encoding="utf-8") as f:
         json.dump(cmap, f, ensure_ascii=False, indent=2)
 
-    print(f"\ncluster_map.json 초안 저장: {p}")
-    print("→ 'name', 'models', 'star_required'를 직접 채워주세요.")
-    print("  models 가능 값: star | hedge | self | clarity")
+    print(f"\ncluster_map 초안 저장(운영 파일은 변경하지 않음): {p}")
+    print(f"→ 대표 질문을 보고 'name' / 'indicators' / 'star_required'를 정한 뒤 {_CLUSTER_MAP_PATH.name}에 직접 반영하세요.")
+    print("  indicators 가능 값: 핵심 주장 명확성 | 경험 구체성 | 표현 명료성 | 자기표현 차별성 | 문장 완성도")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -635,7 +641,7 @@ if __name__ == "__main__":
     # 5. K-Means 학습
     km = fit_kmeans(embeddings, k=optimal_k)
 
-    # 6. 대표 질문 출력 + cluster_map.json 초안 저장
+    # 6. 대표 질문 출력 + cluster_map 초안 저장 (cluster_map.draft.json — 운영 cluster_map.json은 보존됨)
     cluster_info = print_cluster_representatives(km, questions, embeddings)
     save_cluster_map(cluster_info, k=optimal_k)
 

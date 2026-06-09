@@ -64,8 +64,12 @@ INDICATORS = [
     "문장 완성도",       # 문장 구조·가독성            ← 규칙(길이·종결어 반복)
 ]
 
-# 문항 적합성 점수가 이 미만이면 나머지 분석 중단
-GATE_THRESHOLD = 20
+# 문항 적합성 점수가 이 미만이면 나머지 분석 중단.
+# 라벨 데이터 300건(EXCELLENT/MEDIUM/OFF_TOPIC 각 100) 기준 hybrid 점수가
+# OFF_TOPIC[~32.7]과 ON_TOPIC[40.1~] 구간으로 완전히 분리되어, 그 정중앙(최대 마진)을 채택.
+# 동문서답 검출 100% / 정상 답변 오차단 0%를 만족하며 분포 변동에 가장 강건.
+# 재산출: scripts/calibrate_relevance_gate.py
+GATE_THRESHOLD = 36
 
 # ROLE02 키워드 (두괄식·STAR 폴백)
 FIRST_SENTENCE_SIGNALS = [
@@ -351,24 +355,39 @@ def score_ambiguity(text: str) -> MetricResult:
 
 # ── ROLE04 영역 ──────────────────────────────────────────────
 
+_GRADE_TO_LEVEL = {"A": "높음", "B": "높음", "C": "주의", "D": "낮음"}
+
+
 def score_self_centered(text: str) -> MetricResult:
-    """자기표현 차별성 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩."""
+    """결과중심 표현 비중 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩.
+
+    score : contribution_score - self_score 를 0~100으로 정규화 (높을수록 기여 중심)
+    level : grade(A/B/C/D) 기반 — A/B=높음, C=주의, D=낮음
+    """
     if detect_self_language is None:
         return MetricResult("자기표현 차별성", 50, "주의", "self_detector 연결 실패.")
 
     result = detect_self_language(text)
-    dict_score = clamp(result["self_score"])
+
+    # diff 기반 score: contribution - self 를 0~100 범위로 변환
+    # diff 범위 -100~+100 → (diff + 100) / 2 로 정규화
+    diff = result["contribution_score"] - result["self_score"]
+    dict_score = clamp(round((diff + 100) / 2))
 
     # dependency_parser가 있으면 의존 구문 자기중심 비율을 40% 가중 합산
+    # dep_score는 self_ratio 기반(높을수록 자기중심) → diff 기반 점수와 방향 맞춤
     if dep_parse_paragraph is not None:
         try:
             dep = dep_parse_paragraph(text)
-            dep_score = clamp(round(dep["self_ratio"] * 100))
-            score = clamp(round(dict_score * 0.6 + dep_score * 0.4))
+            dep_contribution = clamp(round((1 - dep["self_ratio"]) * 100))
+            score = clamp(round(dict_score * 0.6 + dep_contribution * 0.4))
         except Exception:
             score = dict_score
     else:
         score = dict_score
+
+    grade = result["grade"]
+    level = _GRADE_TO_LEVEL.get(grade, "주의")
 
     feedback = result["summary"]
     if result["feedback_items"]:
@@ -376,14 +395,14 @@ def score_self_centered(text: str) -> MetricResult:
         feedback += f" (예: '{top['original']}' {top['suggestion']})"
 
     return MetricResult(
-        label="자기표현 차별성",
+        label="결과중심 표현 비중",
         score=score,
-        level=risk_level_from_score(score),
+        level=level,
         feedback=feedback,
         details={
             "self_score":             result["self_score"],
             "contribution_score":     result["contribution_score"],
-            "grade":                  result["grade"],
+            "grade":                  grade,
             "self_hit_count":         result["self_hit_count"],
             "contribution_hit_count": result["contribution_hit_count"],
             "highlighted_html":       result["highlighted_html"],
@@ -470,8 +489,6 @@ def build_summary(metrics: Dict[str, MetricResult]) -> str:
     if not candidates:
         return "분석할 내용이 부족합니다. 답변을 더 작성해 주세요."
     weak = min(candidates, key=lambda k: metrics[k].score)
-    if _on(metrics, "문항 적합성") and metrics["문항 적합성"].score < 50:
-        return "표현 품질과 별개로 질문에 직접 답하는 힘이 약합니다. 질문 핵심어와 요구 조건을 먼저 맞추세요."
     return f"전반적으로 '{weak}'이(가) 가장 약합니다. 아래 피드백에서 이 부분부터 보완해 보세요."
 
 
@@ -525,7 +542,17 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
             else:
                 continue
         else:
+<<<<<<< HEAD
             comment = "hedge_detector 연결 실패 — 분석 불가"
+=======
+            vague_hits = [w for w in VAGUE_WORDS if w in sentence]
+            if vague_hits and not has_number:
+                comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
+            elif has_number:
+                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
+            else:
+                continue
+>>>>>>> origin/dev
 
         feedback.append({"sentence": sentence, "comment": comment})
     return feedback
