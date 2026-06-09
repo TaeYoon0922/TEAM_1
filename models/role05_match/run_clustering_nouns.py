@@ -5,7 +5,8 @@
 import sys, os, pickle, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.modules.setdefault("sentence_transformers", None)
-sys.path.insert(0, os.path.dirname(__file__))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import re
 import numpy as np
@@ -13,7 +14,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-from pathlib import Path
 
 from models.role05_match.question_clusterer import (
     load_questions, _CACHE_DIR, _CLUSTER_MAP_PATH, save_cluster_map
@@ -258,6 +258,6 @@ print(f"  PCA 산점도:     {CACHE}/noun_pca_scatter.png")
 print(f"  군집 크기:      {CACHE}/noun_cluster_size.png")
 print(f"  상위 키워드:    {CACHE}/noun_top_keywords.png")
 
-# cluster_map.json 초안 갱신
+# cluster_map 초안 갱신 (cluster_map.draft.json — 운영 cluster_map.json은 보존됨)
 save_cluster_map(cluster_info, k=optimal_k)
 print("\nALL DONE")

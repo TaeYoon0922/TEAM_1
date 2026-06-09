@@ -1,5 +1,6 @@
 import sys
-sys.path.insert(0, 'models/role04_self')
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from KoSimCSE import analyze_essay
 
 text = """개발자가 되고 싶다고 결심한 뒤, 제가 결정한 저의 미래의 모습입니다.

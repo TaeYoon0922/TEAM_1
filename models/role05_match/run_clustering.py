@@ -4,7 +4,8 @@ Step 2~5 실행 스크립트
 SBERT가 정상 동작하는 환경에서는 question_clusterer.get_embeddings()로 교체 가능.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 # sentence_transformers import 자체를 차단해 segfault 방지
 import sys
@@ -38,6 +39,6 @@ print(f"최적 k: {optimal_k}")
 km = fit_kmeans(embeddings, k=optimal_k)
 cluster_info = print_cluster_representatives(km, questions, embeddings, top_n=5)
 
-# cluster_map.json 초안 저장
+# cluster_map 초안 저장 (cluster_map.draft.json — 운영 cluster_map.json은 보존됨)
 save_cluster_map(cluster_info, k=optimal_k)
 print("\nALL DONE")

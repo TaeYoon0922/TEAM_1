@@ -4,7 +4,8 @@ SBERT(ko-sroberta-multitask) 의미 임베딩 + K-Means(k=6) 재군집.
 """
 import sys, os, io, pickle
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
-sys.path.insert(0, os.path.dirname(__file__))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import numpy as np
 import pandas as pd
@@ -12,7 +13,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 
@@ -47,7 +47,7 @@ km = fit_kmeans(embeddings, k=K, force_reload=True)
 labels  = km.labels_
 sizes   = [int((labels == c).sum()) for c in range(K)]
 
-# 3) 대표 질문 + cluster_map.json 초안
+# 3) 대표 질문 + cluster_map 초안 (cluster_map.draft.json — 운영 cluster_map.json은 보존됨)
 cluster_info = print_cluster_representatives(km, questions, embeddings, top_n=5)
 save_cluster_map(cluster_info, k=K)
 

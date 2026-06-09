@@ -2,10 +2,10 @@
 import sys, os, pickle, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.modules.setdefault("sentence_transformers", None)
-sys.path.insert(0, os.path.dirname(__file__))
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pandas as pd
-from pathlib import Path
 from models.role05_match.question_clusterer import load_questions, _CACHE_DIR
 
 CACHE   = _CACHE_DIR

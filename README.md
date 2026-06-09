@@ -52,7 +52,7 @@ python -m spacy download ko_core_news_sm
    - 지표별 피드백, 강점, 우선 개선 포인트, 문장별 코멘트 제공
 ```
 
-> 문항 적합성 게이트 임계값(`GATE_THRESHOLD = 20`)은 현재 합성 라벨 데이터로는 신뢰할 보정이 어려워, 명백한 동문서답만 거르도록 **보수적으로** 설정했습니다. 사람이 라벨링한 실제 동문서답 데이터가 쌓이면 `scripts/calibrate_relevance_gate.py`로 재보정할 수 있습니다.
+> 문항 적합성 게이트 임계값은 `scripts/calibrate_relevance_gate.py`로 라벨 데이터 300건(EXCELLENT/MEDIUM/OFF_TOPIC 각 100)을 분석해 **`GATE_THRESHOLD = 36`**으로 재보정했습니다. 배포 가중치(키워드 40% + SBERT 60%) 기준 hybrid 점수가 OFF_TOPIC[~32.7]과 ON_TOPIC[40.1~] 구간으로 완전히 분리되어, 그 정중앙(최대 마진 지점)을 채택했습니다 — 동문서답 검출 100% / 정상 답변 오차단 0%. 사람이 라벨링한 실제 데이터가 추가로 쌓이면 같은 스크립트로 재산출할 수 있습니다.
 
 ## 현재 노출 지표
 
