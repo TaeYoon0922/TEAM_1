@@ -297,7 +297,7 @@ def inject_styles() -> None:
 
 
 def main() -> None:
-    st.set_page_config(page_title="자소서 분석", page_icon="📝", layout="wide")
+    st.set_page_config(page_title="TEAM_1 자소서 분석", layout="wide")
     inject_styles()
     init_state()
     render_sidebar()
@@ -324,7 +324,7 @@ def init_state() -> None:
 
 def render_sidebar() -> None:
     with st.sidebar:
-        st.header("자소서 분석")
+        st.header("TEAM_1 자소서 분석")
         if st.button("새 분석 시작", use_container_width=True):
             st.session_state.cover_letter_text = ""
             st.session_state.question_text = ""
@@ -349,7 +349,7 @@ def render_topbar(title: str, status: str) -> None:
 
 
 def render_analysis_page() -> None:
-    render_topbar("자소서 분석", "질문 적합도 포함 피드백")
+    render_topbar("TEAM_1 자소서 분석", "질문 적합도 포함 피드백")
 
     text = st.session_state.cover_letter_text.strip()
     question = st.session_state.question_text.strip()
@@ -394,9 +394,10 @@ def render_history_page() -> None:
                 st.rerun()
         with cols[1]:
             if st.button("결과 보기", key=f'view_{item["id"]}'):
-                render_assistant_message(
-                    analyze_cover_letter(item["text"], item.get("question", ""))
-                )
+                st.session_state.cover_letter_text = item["text"]
+                st.session_state.question_text = item.get("question", "")
+                st.session_state.page = "자소서 분석"
+                st.rerun()
 
     st.divider()
     if st.button("기록 지우기", use_container_width=True):
@@ -425,7 +426,7 @@ def render_metric_page() -> None:
                     st.caption(info["check"])
 
     with st.expander("결과는 어떻게 보나요?"):
-        st.write("점수 대신, 각 지표별로 무엇을 어떻게 고치면 좋을지 피드백만 보여줍니다.")
+        st.write("점수 대신, 각 지표별로 무엇을 어떻게 고치면 좋을지 피드백을 보여줍니다.")
         st.write("질문 유형(군집)에 따라 일부 지표는 '해당 없음'으로 빠질 수 있습니다.")
 
 
