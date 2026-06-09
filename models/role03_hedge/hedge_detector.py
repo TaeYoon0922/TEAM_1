@@ -18,30 +18,31 @@ STEM_HEDGE_DICT = {
     "A_effort": {
         "label": "노력·의지형",
         "weight": 1.0,
-        "stems": ["노력", "열심히", "최선", "성실하다", "꾸준히"]
+        "stems": ["노력", "열심히", "최선", "성실하다", "꾸준하다", "열정", "도전"],
     },
     "B_quantifier": {
         "label": "양화 모호어",
         "weight": 0.8,
-        "stems": ["어느정도", "수많다", "각종"]
+        "stems": ["어느정도", "수많다", "각종", "다양하다", "다수", "여러"],
     },
     "C_abstract": {
         "label": "추상명사",
         "weight": 1.2,
         "stems": [
             "성장하다", "자기개발",
-            "긍정적", "꼼꼼하다", "역량", "발전"
-        ]
+            "긍정적", "꼼꼼하다", "역량", "발전",
+            "소통", "리더십", "책임감", "적극",
+        ],
     },
     "D_emotion": {
         "label": "감정·인식형 동사",
         "weight": 1.0,
-        "stems": ["생각"]
+        "stems": ["생각"],
     },
     "E_uncertainty": {
         "label": "불확실성 표지어",
         "weight": 1.5,
-        "stems": ["같다", "싶다"]
+        "stems": ["같다", "싶다"],
     },
 }
 
@@ -69,19 +70,29 @@ FEEDBACK_MAP = {
     "최선":       "→ 구체적 행동으로 대체하세요",
     "성실하다":   "→ 행동 증거로 대체하세요",
     "꾸준히":     "→ 기간과 횟수를 명시하세요",
+    "꾸준하다":   "→ 기간과 횟수를 명시하세요",
+    "열정":       "→ 어떤 열정인지 구체적 활동과 결과로 서술하세요",
+    "도전":       "→ 어떤 도전이었는지 상황과 결과를 구체화하세요",
 
     # B 양화 모호어
     "어느정도":   "→ 구체적 수치로 대체하세요",
     "수많다":     "→ 개수를 명시하세요",
     "각종":       "→ 종류를 나열하세요",
+    "다양하다":   "→ 구체적인 종류나 개수를 명시하세요",
+    "다수":       "→ 정확한 개수로 대체하세요",
+    "여러":       "→ 개수나 종류를 구체적으로 나열하세요",
 
     # C 추상명사
     "성장하다":   "→ 무엇이 얼마나 변했는지 수치로 서술하세요",
     "자기개발":   "→ 구체적 학습 내용으로 대체하세요",
-    "긍정적":     "→ 구체적 태도 변화로 대체하세요",
+    "긍정적":     "→ 구체적 태도 변화 사례로 대체하세요",
     "꼼꼼하다":   "→ 행동 증거로 대체하세요",
     "역량":       "→ 어떤 역량인지 구체화하세요",
     "발전":       "→ 수치로 얼마나 발전했는지 서술하세요",
+    "소통":       "→ 구체적 방법과 결과를 함께 서술하세요",
+    "리더십":     "→ 어떤 역할로 어떤 결과를 냈는지 서술하세요",
+    "책임감":     "→ 책임진 과제와 그 결과를 구체적으로 서술하세요",
+    "적극":       "→ 어떻게 참여했는지 구체적 행동으로 서술하세요",
 
     # D 감정·인식형
     "생각":   "→ '~입니다'로 단정하세요",
@@ -135,7 +146,12 @@ def _find_hits_konlpy(text: str) -> list:
     for cat_key, cat_info in STEM_HEDGE_DICT.items():
         for stem in cat_info["stems"]:
             if stem in morphs:
-                search_word = stem.replace("하다", "").replace("다", "")
+                if stem.endswith("하다"):
+                    search_word = stem[:-2]
+                elif stem.endswith("다"):
+                    search_word = stem[:-1]
+                else:
+                    search_word = stem
                 if not search_word:
                     search_word = stem
                 for m in re.finditer(re.escape(search_word), text):
@@ -149,7 +165,9 @@ def _find_hits_konlpy(text: str) -> list:
                     })
 
     EXCEPTION_TERMS = {
-        "깨달": ("D_emotion", "감정·인식형 동사", 1.2),
+        "깨달":     ("D_emotion",    "감정·인식형 동사", 1.2),
+        "어느정도": ("B_quantifier", "양화 모호어",      0.8),
+        "긍정적":   ("C_abstract",   "추상명사",         1.2),
     }
     for term, (cat_key, label, weight) in EXCEPTION_TERMS.items():
         for m in re.finditer(re.escape(term), text):
