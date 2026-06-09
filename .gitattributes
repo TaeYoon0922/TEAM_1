@@ -7,6 +7,10 @@
 *.txt  text eol=lf
 *.md   text eol=lf
 *.ipynb text eol=lf
+
+# 원본 크롤링 데이터는 줄바꿈 자동 변환 없이 보존
+data/raw/*.csv -text -eol
+
 # 바이너리 — 변환 없음
 *.pkl  binary
 *.npy  binary

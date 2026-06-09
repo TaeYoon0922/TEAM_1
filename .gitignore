@@ -10,3 +10,23 @@ dist/
 build/
 .DS_Store
 .hf_cache/
+
+# Large local datasets and generated model outputs
+data/labeled/jobkorea_star_full_labeled_sentence_dataset.csv
+data/labeled/*.csv:Zone.Identifier
+data/processed/role02_*.csv
+models/**/cache/
+models/**/artifacts/
+
+# 군집 캐시: 대용량 재학습용(.npy 등)은 무시, 런타임 필수 KMeans 모델만 git 포함
+# (clone 후 바로 실행해도 군집화가 동일하게 동작하도록)
+!models/role05_match/cache/
+models/role05_match/cache/*
+!models/role05_match/cache/train_kmeans_model.pkl
+
+# ROLE01 대용량 데이터 산출물 (앱 런타임 불필요, GitHub 100MB 초과)
+data/raw/*.csv
+data/raw/*.xlsx
+
+# 군집 재학습 시 생기는 초안 파일 (운영 cluster_map.json은 직접 검토 후 머지해야 함)
+models/role05_match/cluster_map.draft.json

@@ -25,18 +25,19 @@ from sklearn.pipeline import Pipeline
 # ── 경로 설정 ──────────────────────────────────────────────────────────────────
 _DIR = Path(__file__).parent
 _ROOT = _DIR.parent.parent
-_DATA_PATH = _ROOT / "data" / "raw" / "잡코리아 데이터셋 원문 7000개.csv"
+_DATA_PATH = _ROOT / "data" / "processed" / "jobkorea_train.csv"
 _CACHE_DIR = _DIR / "cache"
 _CLUSTER_MAP_PATH = _DIR / "cluster_map.json"
+_CLUSTER_MAP_DRAFT_PATH = _DIR / "cluster_map.draft.json"
 
 _CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-EMBED_CACHE     = _CACHE_DIR / "sbert_embeddings.npy"
-TFIDF_EMB_CACHE = _CACHE_DIR / "tfidf_lsa_embeddings.npy"
-QUESTIONS_CACHE = _CACHE_DIR / "unique_questions.pkl"
-KMEANS_CACHE    = _CACHE_DIR / "kmeans_model.pkl"
-TFIDF_CACHE     = _CACHE_DIR / "tfidf_embeddings.npy"
-VECTORIZER_CACHE = _CACHE_DIR / "tfidf_vectorizer.pkl"
+EMBED_CACHE      = _CACHE_DIR / "train_sbert_embeddings.npy"
+TFIDF_EMB_CACHE  = _CACHE_DIR / "train_tfidf_lsa_embeddings.npy"
+QUESTIONS_CACHE  = _CACHE_DIR / "train_unique_questions.pkl"
+KMEANS_CACHE     = _CACHE_DIR / "train_kmeans_model.pkl"
+TFIDF_CACHE      = _CACHE_DIR / "train_tfidf_embeddings.npy"
+VECTORIZER_CACHE = _CACHE_DIR / "train_tfidf_vectorizer.pkl"
 
 # ── SBERT 사용 가능 여부 체크 ─────────────────────────────────────────────────
 _SBERT_AVAILABLE = False
@@ -430,10 +431,15 @@ def get_evaluation_models(cluster_id: int, cluster_map: dict = None) -> dict:
 
 def save_cluster_map(cluster_info: dict, k: int, path: str = None):
     """
-    군집화 결과로 cluster_map.json 초안 생성.
-    name / models / star_required 는 사용자가 직접 수정해야 함.
+    군집화 결과로 cluster_map 초안을 별도 파일(cluster_map.draft.json)에 생성.
+
+    주의: 운영 중인 cluster_map.json은 군집 이름·indicators가 이미 큐레이션되어
+    analyzer._rule_cluster_override 등과 인덱스가 맞춰져 있어, 재학습 시 자동
+    덮어쓰면 그 정합성이 깨진다. 그래서 기본 출력 경로는 cluster_map.json이 아닌
+    초안 파일이며, name / indicators / star_required는 대표 질문을 보고 직접
+    cluster_map.json에 반영해야 한다.
     """
-    p = Path(path or _CLUSTER_MAP_PATH)
+    p = Path(path or _CLUSTER_MAP_DRAFT_PATH)
 
     cmap = {}
     for i in range(k):
@@ -441,18 +447,18 @@ def save_cluster_map(cluster_info: dict, k: int, path: str = None):
         info = cluster_info.get(key, {})
         cmap[key] = {
             "name": f"군집{i}_이름미정",
-            "models": ["star", "hedge"],
+            "indicators": [],
             "star_required": True,
-            "description": "대표 질문을 보고 name/models/star_required를 수정하세요",
+            "description": "대표 질문을 보고 name/indicators/star_required를 정해 cluster_map.json에 직접 반영하세요",
             "representative_questions": info.get("representative_questions", [])[:3],
         }
 
     with open(p, "w", encoding="utf-8") as f:
         json.dump(cmap, f, ensure_ascii=False, indent=2)
 
-    print(f"\ncluster_map.json 초안 저장: {p}")
-    print("→ 'name', 'models', 'star_required'를 직접 채워주세요.")
-    print("  models 가능 값: star | hedge | self | clarity")
+    print(f"\ncluster_map 초안 저장(운영 파일은 변경하지 않음): {p}")
+    print(f"→ 대표 질문을 보고 'name' / 'indicators' / 'star_required'를 정한 뒤 {_CLUSTER_MAP_PATH.name}에 직접 반영하세요.")
+    print("  indicators 가능 값: 핵심 주장 명확성 | 경험 구체성 | 표현 명료성 | 자기표현 차별성 | 문장 완성도")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -485,6 +491,33 @@ def _embed_single(question: str) -> np.ndarray:
     return emb / norm if norm > 0 else emb
 
 
+def _rule_cluster_override(question: str) -> int | None:
+    """명확한 질문 신호는 K-Means보다 우선한다.
+
+    K-Means 군집은 지표 라우팅용 보조 장치라, 흔한 자소서 문항의 강한
+    키워드는 규칙으로 먼저 잡아 군집 쏠림을 줄인다.
+    """
+    q = _preprocess(question).lower()
+
+    # cluster_map.json 인덱스와 반드시 일치:
+    # 0=성장과정·성격, 1=협업·팀워크, 2=문제해결·성과경험, 3=지원동기·포부, 4=직무역량·강점, 5=가치관·견해
+    # 가치관/견해형은 "지원 직무 관련 Trend"처럼 직무 단어가 섞여도 견해가 핵심이다.
+    if any(signal in q for signal in ("trend", "트렌드", "견해", "가치관", "좌우명", "인재상", "핵심가치")):
+        return 5
+    if any(signal in q for signal in ("협업", "팀워크", "공동", "갈등", "타인과", "팀원")):
+        return 1
+    if any(signal in q for signal in ("성장과정", "성격", "장단점", "장/단점")):
+        return 0
+    if any(signal in q for signal in ("지원동기", "지원 동기", "입사 후", "포부")):
+        return 3
+    if any(signal in q for signal in ("역량", "강점", "전문성", "직무 수행", "직무와 관련")):
+        return 4
+    if any(signal in q for signal in ("문제", "해결", "도전", "성과", "어려움", "극복", "목표를 달성")):
+        return 2
+
+    return None
+
+
 def predict_cluster(question: str, km: KMeans = None,
                     cluster_map: dict = None) -> dict:
     """
@@ -497,9 +530,13 @@ def predict_cluster(question: str, km: KMeans = None,
           "cluster_info": {"name": "경험형", "models": [...], "star_required": True}
         }
     """
-    emb  = _embed_single(question)
-    km   = km or _load_km()
-    cid  = int(km.predict(emb)[0])
+    override = _rule_cluster_override(question)
+    if override is None:
+        emb = _embed_single(question)
+        km = km or _load_km()
+        cid = int(km.predict(emb)[0])
+    else:
+        cid = override
     cmap = cluster_map if cluster_map is not None else load_cluster_map()
 
     return {
@@ -604,7 +641,7 @@ if __name__ == "__main__":
     # 5. K-Means 학습
     km = fit_kmeans(embeddings, k=optimal_k)
 
-    # 6. 대표 질문 출력 + cluster_map.json 초안 저장
+    # 6. 대표 질문 출력 + cluster_map 초안 저장 (cluster_map.draft.json — 운영 cluster_map.json은 보존됨)
     cluster_info = print_cluster_representatives(km, questions, embeddings)
     save_cluster_map(cluster_info, k=optimal_k)
 
