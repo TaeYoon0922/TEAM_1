@@ -260,6 +260,21 @@ def inject_styles() -> None:
             margin-bottom: 0.65rem;
         }
 
+        .sentence-box.contrib {
+            border-left: 4px solid #10a37f;
+            background: #f0fdf4;
+        }
+
+        .sentence-box.self {
+            border-left: 4px solid #f59e0b;
+            background: #fffbeb;
+        }
+
+        .sentence-box.hedge {
+            border-left: 4px solid #6366f1;
+            background: #f5f3ff;
+        }
+
         .sentence-box b {
             color: var(--ink);
         }
@@ -563,10 +578,19 @@ def render_feedback(result: AnalysisResult) -> None:
 
 
 def render_sentence_feedback(result: AnalysisResult) -> None:
+    TAG_LABEL = {
+        "contrib": "✓ 기여 표현",
+        "self":    "⚠ 자기중심",
+        "hedge":   "△ 모호 표현",
+        "neutral": "",
+    }
     for index, item in enumerate(result.sentence_feedback, start=1):
+        tag   = item.get("tag", "neutral")
+        label = TAG_LABEL.get(tag, "")
+        badge = f'<span style="font-size:0.75rem;font-weight:700;margin-left:0.4rem;opacity:0.7">{escape(label)}</span>' if label else ""
         st.markdown(
-            f'<div class="sentence-box">'
-            f'<b>{index}. {escape(item["sentence"])}</b>'
+            f'<div class="sentence-box {tag}">'
+            f'<b>{index}. {escape(item["sentence"])}</b>{badge}'
             f'<p>{escape(item["comment"])}</p>'
             f'</div>',
             unsafe_allow_html=True,

@@ -517,31 +517,84 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
     return improvements
 
 
+def _role4_sentence_comment(sentence: str):
+    """ROLE4 기반 단일 문장 분석 → (comment, tag) 반환.
+    tag: "contrib" | "self" | None
+    """
+    if detect_self_language is None:
+        return None, None
+
+    r = detect_self_language(sentence)
+    contrib_hits = r["contribution_hits"]
+    self_hits    = r["self_hits"]
+    number_hits  = r["number_hits"]
+
+    has_contrib  = bool(contrib_hits) or bool(number_hits)
+    strong_self  = [h for h in self_hits if h["category"] in ("B_emotion", "D_trait")]
+
+    if has_contrib:
+        parts = []
+        if contrib_hits:
+            terms = list(dict.fromkeys(h["term"] for h in contrib_hits[:2]))
+            parts += [f"'{t}'" for t in terms]
+        if number_hits:
+            parts.append(f"'{number_hits[0]}'")
+        detail = f" ({', '.join(parts)})" if parts else ""
+        return f"기여 중심 표현 ✓{detail}", "contrib"
+
+    if strong_self:
+        terms = list(dict.fromkeys(h["term"] for h in strong_self[:2]))
+        term_str = ", ".join(f"'{t}'" for t in terms)
+        return (
+            f"{term_str} → 이 경험이 만든 결과나 변화를 한 문장 추가해보세요.",
+            "self",
+        )
+
+    return None, None
+
+
 def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
         has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
-        if detect_hedge_expressions is not None:
-            result = detect_hedge_expressions(sentence)
-            feedback_items = result["feedback_items"]
-            if feedback_items:
-                suggestions = [f"'{fb['original']}' {fb['suggestion']}" for fb in feedback_items]
-                comment = " / ".join(suggestions)
-            elif has_number:
-                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
-            elif index == 1 and not any(s in sentence for s in FIRST_SENTENCE_SIGNALS):
-                comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
-            else:
-                continue
-        else:
-            vague_hits = [w for w in VAGUE_WORDS if w in sentence]
-            if vague_hits and not has_number:
-                comment = f"'{', '.join(vague_hits[:3])}' 표현이 추상적입니다. 수치나 실제 행동으로 바꿔보세요."
-            elif has_number:
-                comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
-            else:
-                continue
+        # ── ROLE4: 기여 vs 자기중심 판단 ──────────────────────
+        role4_comment, role4_tag = _role4_sentence_comment(sentence)
 
-        feedback.append({"sentence": sentence, "comment": comment})
+        # ── ROLE5: 모호표현 탐지 ───────────────────────────────
+        hedge_comment = None
+        if detect_hedge_expressions is not None:
+            hresult = detect_hedge_expressions(sentence)
+            if hresult["feedback_items"]:
+                suggestions = [
+                    f"'{fb['original']}' {fb['suggestion']}"
+                    for fb in hresult["feedback_items"]
+                ]
+                hedge_comment = " / ".join(suggestions)
+
+        # ── 우선순위 결합 ──────────────────────────────────────
+        if role4_tag == "contrib":
+            # 기여 표현 확인됨 — 모호표현이 함께 있으면 병기
+            comment = role4_comment
+            if hedge_comment:
+                comment += f"  |  {hedge_comment}"
+            tag = "contrib"
+        elif hedge_comment:
+            # 모호표현 경고 우선
+            comment = hedge_comment
+            tag = "hedge"
+        elif role4_tag == "self":
+            # 자기중심 표현 개선 제안
+            comment = role4_comment
+            tag = "self"
+        elif has_number:
+            comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
+            tag = "contrib"
+        elif index == 1 and not any(s in sentence for s in FIRST_SENTENCE_SIGNALS):
+            comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
+            tag = "neutral"
+        else:
+            continue
+
+        feedback.append({"sentence": sentence, "comment": comment, "tag": tag})
     return feedback
