@@ -465,8 +465,6 @@ def build_summary(metrics: Dict[str, MetricResult]) -> str:
     if not candidates:
         return "분석할 내용이 부족합니다. 답변을 더 작성해 주세요."
     weak = min(candidates, key=lambda k: metrics[k].score)
-    if _on(metrics, "문항 적합성") and metrics["문항 적합성"].score < 50:
-        return "표현 품질과 별개로 질문에 직접 답하는 힘이 약합니다. 질문 핵심어와 요구 조건을 먼저 맞추세요."
     return f"전반적으로 '{weak}'이(가) 가장 약합니다. 아래 피드백에서 이 부분부터 보완해 보세요."
 
 
@@ -520,7 +518,7 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
             elif index == 1 and not any(s in sentence for s in FIRST_SENTENCE_SIGNALS):
                 comment = "첫 문장에는 결론이나 성과를 더 직접적으로 배치하는 편이 좋습니다."
             else:
-                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+                continue
         else:
             vague_hits = [w for w in VAGUE_WORDS if w in sentence]
             if vague_hits and not has_number:
@@ -528,7 +526,7 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
             elif has_number:
                 comment = "구체적인 수치가 있어 설득력에 도움이 됩니다."
             else:
-                comment = "문장의 역할은 좋지만, 결과나 영향이 더 드러나면 좋습니다."
+                continue
 
         feedback.append({"sentence": sentence, "comment": comment})
     return feedback
