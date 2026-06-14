@@ -566,6 +566,8 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
     feedback = []
     for index, sentence in enumerate(sentences[:8], start=1):
 
+        has_number = bool(re.search(NUMBER_PATTERN, sentence))
+
         # ── ROLE4: 기여 vs 자기중심 판단 ──────────────────────
         role4_comment, role4_tag = _role4_sentence_comment(sentence)
 
