@@ -1,4 +1,4 @@
-# TEAM_1
+﻿# TEAM_1
 
 자소서 질문과 답변을 함께 입력하면, 먼저 답변이 문항에 맞는지 확인한 뒤 질문 유형에 맞는 지표만 골라 개선 피드백을 제공하는 텍스트 마이닝 시스템입니다.
 
@@ -58,9 +58,9 @@ streamlit run app/streamlit_app.py
 |---|---|
 | `app/streamlit_app.py` | Streamlit UI |
 | `app/analyzer.py` | 전체 분석 파이프라인 |
-| `models/role05_match/relevance_detector.py` | 문항 적합성 분석 |
-| `models/role05_match/question_clusterer.py` | 질문 군집화 |
-| `models/role05_match/cluster_map.json` | 질문 유형별 지표 설정 |
-| `models/role02_star/` | 두괄식·수치·STAR 관련 규칙 |
-| `models/role03_hedge/` | 모호·추상 표현 탐지 |
-| `models/role04_self/` | 자기중심/기여중심 표현 분석 |
+| `models/match/relevance_detector.py` | 문항 적합성 분석 |
+| `models/match/question_clusterer.py` | 질문 군집화 |
+| `models/match/cluster_map.json` | 질문 유형별 지표 설정 |
+| `models/star/` | 두괄식·수치·STAR 관련 규칙 |
+| `models/hedge/` | 모호·추상 표현 탐지 |
+| `models/self/` | 자기중심/기여중심 표현 분석 |

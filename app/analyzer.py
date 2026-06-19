@@ -7,16 +7,16 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List
 
-# ROLE03 hedge_detector
+
 try:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role03_hedge'))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'hedge'))
     from hedge_detector import detect_hedge_expressions
 except Exception:
     detect_hedge_expressions = None
 
-# ROLE04 self_detector + dependency_parser
+
 try:
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'role04_self'))
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'models', 'self'))
     from self_detector import detect_self_language
 except Exception:
     detect_self_language = None
@@ -26,10 +26,10 @@ try:
 except Exception:
     dep_parse_paragraph = None
 
-# ROLE05 relevance_detector
+
 try:
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-    from models.role05_match.relevance_detector import detect_answer_relevance
+    from models.match.relevance_detector import detect_answer_relevance
 except Exception:
     detect_answer_relevance = None
 
@@ -40,7 +40,7 @@ class MetricResult:
     score: int
     level: str
     feedback: str
-    applicable: bool = True   # 군집별 게이팅용. False면 '해당 없음'
+    applicable: bool = True
     details: dict = field(default_factory=dict)
 
 
@@ -53,25 +53,25 @@ class AnalysisResult:
     sentence_feedback: List[Dict[str, str]]
 
 
-# 최종 표시 지표 (순서 = 화면 노출 순서)
-# 참고: '지원 적합성'은 직무 사전(role03) 변별력 부족으로 현재 평가지표에서 제외(연동만 해제, 코드는 유지).
+
+
 INDICATORS = [
-    "문항 적합성",       # 질문에 맞는 답변인지        ← relevance_detector + ko-sroberta(하이브리드)
-    "핵심 주장 명확성",  # 두괄식, 핵심 메시지          ← KoSimCSE(폴백: 규칙)
-    "경험 구체성",       # STAR, 실제 행동과 결과       ← 규칙(STAR)
-    "표현 명료성",       # 모호어·추상어·상투어         ← hedge_detector
-    "자기표현 차별성",   # 본인만의 경험과 관점         ← self_detector + dependency_parser
-    "문장 완성도",       # 문장 구조·가독성            ← 규칙(길이·종결어 반복)
+    "문항 적합성",
+    "핵심 주장 명확성",
+    "경험 구체성",
+    "표현 명료성",
+    "자기표현 차별성",
+    "문장 완성도",
 ]
 
-# 문항 적합성 점수가 이 미만이면 나머지 분석 중단.
-# 라벨 데이터 300건(EXCELLENT/MEDIUM/OFF_TOPIC 각 100) 기준 hybrid 점수가
-# OFF_TOPIC[~32.7]과 ON_TOPIC[40.1~] 구간으로 완전히 분리되어, 그 정중앙(최대 마진)을 채택.
-# 동문서답 검출 100% / 정상 답변 오차단 0%를 만족하며 분포 변동에 가장 강건.
-# 재산출: scripts/calibrate_relevance_gate.py
+
+
+
+
+
 GATE_THRESHOLD = 36
 
-# ROLE02 키워드 (두괄식·STAR 폴백)
+
 FIRST_SENTENCE_SIGNALS = [
     "결과", "성과", "배웠", "기여", "해결", "개선", "달성",
     "줄였", "높였", "만들", "완성", "입사",
@@ -84,7 +84,7 @@ STAR_SIGNALS = {
     "result":    ["결과", "성과", "달성", "증가", "감소", "개선", "완료", "해결", "배웠"],
 }
 
-# ROLE03 모호어 (hedge_detector 미연결 시 폴백)
+
 VAGUE_WORDS = [
     "열심히", "최선을", "많이", "다양한", "여러", "좋은",
     "성장", "노력", "책임감", "소통", "도전", "꼼꼼",
@@ -100,11 +100,11 @@ NUMBER_PATTERN = r"\d|%|명|회|개월|년|배"
 
 
 def get_applicable_indicators(question: str):
-    """질문 → 군집 → 적용 지표 집합. 실패/질문 없으면 None(=전체 적용)."""
+
     if not question:
         return None
     try:
-        from models.role05_match.question_clusterer import predict_cluster
+        from models.match.question_clusterer import predict_cluster
         res = predict_cluster(question)
         inds = res.get("cluster_info", {}).get("indicators")
         return set(inds) if inds else None
@@ -119,7 +119,7 @@ def analyze_cover_letter(text: str, question: str = "", job: str = "") -> Analys
 
     metrics: Dict[str, MetricResult] = {}
 
-    # 1단계 게이트: 문항 적합성
+
     if cleaned_question:
         relevance = score_question_relevance(cleaned_question, cleaned)
     else:
@@ -129,7 +129,7 @@ def analyze_cover_letter(text: str, question: str = "", job: str = "") -> Analys
         )
     metrics["문항 적합성"] = relevance
 
-    # 게이트 미달 → 나머지 지표 '분석 보류'
+
     if relevance.applicable and relevance.score < GATE_THRESHOLD:
         for label in INDICATORS[1:]:
             metrics[label] = MetricResult(
@@ -145,7 +145,7 @@ def analyze_cover_letter(text: str, question: str = "", job: str = "") -> Analys
             sentence_feedback=build_sentence_feedback(sentences),
         )
 
-    # 2단계 군집 기반 지표 게이팅
+
     applicable = get_applicable_indicators(cleaned_question)
 
     def gated(label: str, compute) -> MetricResult:
@@ -158,7 +158,7 @@ def analyze_cover_letter(text: str, question: str = "", job: str = "") -> Analys
 
     metrics["핵심 주장 명확성"] = gated("핵심 주장 명확성", lambda: score_core_claim_clarity(cleaned, sentences))
     metrics["경험 구체성"]     = gated("경험 구체성",     lambda: score_star_structure(cleaned))
-    # 지원 적합성: 직무 사전 변별력 부족으로 현재 미연동 (score_job_fit 코드는 유지)
+
     metrics["표현 명료성"]     = gated("표현 명료성",     lambda: score_ambiguity(cleaned))
     metrics["자기표현 차별성"] = gated("자기표현 차별성", lambda: score_self_centered(cleaned))
     metrics["문장 완성도"]     = gated("문장 완성도",     lambda: score_sentence_quality(sentences, cleaned))
@@ -187,7 +187,7 @@ def clamp(value: int, minimum: int = 0, maximum: int = 100) -> int:
     return max(minimum, min(maximum, value))
 
 
-# ── ROLE02 영역 ──────────────────────────────────────────────
+
 
 def score_headline_structure(sentences: List[str], text: str) -> MetricResult:
     if not sentences:
@@ -223,7 +223,7 @@ def score_star_structure(text: str) -> MetricResult:
 
 
 def score_core_claim_clarity(text: str, sentences: List[str]) -> MetricResult:
-    """핵심 주장 명확성. KoSimCSE 우선, 실패 시 규칙 기반 폴백."""
+
     try:
         from KoSimCSE import analyze_paragraph
         res = analyze_paragraph(text)
@@ -241,7 +241,7 @@ def score_core_claim_clarity(text: str, sentences: List[str]) -> MetricResult:
 
 
 def get_job_list() -> List[str]:
-    """선택 가능한 직무 목록(role03 job_fit_scorer). 실패 시 빈 목록."""
+
     try:
         from job_fit_scorer import list_jobs
         return list_jobs()
@@ -250,17 +250,15 @@ def get_job_list() -> List[str]:
 
 
 def score_job_fit(text: str, job: str = "") -> MetricResult:
-    """지원 적합성 — role03 job_fit_scorer로 '선택한 직무'와의 키워드 적합성 평가.
-    직무 미선택/저신뢰 직무는 점수 대신 안내(applicable=False)."""
     if not job:
         return MetricResult(
             "지원 적합성", 0, "직무 미선택",
             "직무를 선택하면 해당 직무와의 적합성을 분석합니다.", applicable=False,
         )
     try:
-        from job_fit_scorer import score_job_fit as role03_job_fit
-        r = role03_job_fit(text, job)
-        # 신뢰도 낮은 직무(키워드 부족) → 결과 미노출
+        from job_fit_scorer import score_job_fit as hedge_job_fit
+        r = hedge_job_fit(text, job)
+
         if not r.get("reliable", False) or r.get("score") is None:
             return MetricResult(
                 "지원 적합성", 0, "분석 불가",
@@ -280,39 +278,39 @@ def score_job_fit(text: str, job: str = "") -> MetricResult:
 
 
 def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
-    """문장 완성도 — 문장 길이·종결어 반복·가독성 기반 규칙 채점."""
+
     if not sentences:
         return MetricResult("문장 완성도", 0, "분석 불가", "분석할 문장이 없습니다.")
 
     score = 100
     issues = []
 
-    # 1. 과도하게 긴 문장 (120자 초과) — 한 문장에 내용이 너무 많음
+
     long_sents = [s for s in sentences if len(s) > 120]
     if long_sents:
         score -= min(len(long_sents) * 10, 30)
         issues.append(f"긴 문장 {len(long_sents)}개 — 한 문장에 한 메시지만 담아 끊으세요.")
 
-    # 2. 너무 짧은 문장 (15자 미만) — 내용 부족
+
     short_sents = [s for s in sentences if len(s) < 15]
     if short_sents:
         score -= min(len(short_sents) * 5, 15)
         issues.append(f"짧은 문장 {len(short_sents)}개 — 내용이 충분히 전달되는지 확인하세요.")
 
-    # 3. 종결어 반복 — 같은 끝맺음이 3회 이상 반복되면 단조로움
+
     endings = [s.strip()[-5:] for s in sentences if len(s.strip()) >= 5]
     repeated = {e: c for e, c in Counter(endings).items() if c >= 3}
     if repeated:
         score -= min(len(repeated) * 10, 20)
         issues.append("같은 문장 종결 패턴이 반복됩니다 — 문장 끝맺음을 다양하게 바꾸세요.")
 
-    # 4. 전체 답변이 너무 짧음
+
     if len(text) < 100:
         score -= 20
         issues.append("전체 내용이 너무 짧습니다. 경험과 결과를 더 풀어서 작성하세요.")
 
     score = clamp(score)
-    # 이슈가 있으면 등급과 피드백을 일치시킨다(우수인데 지적 문구가 뜨는 모순 방지)
+
     if issues:
         level = "보완 필요" if score < 70 else "보통"
         feedback = issues[0]
@@ -322,7 +320,7 @@ def score_sentence_quality(sentences: List[str], text: str) -> MetricResult:
     return MetricResult("문장 완성도", score, level, feedback)
 
 
-# ── ROLE03 영역 ──────────────────────────────────────────────
+
 
 def score_ambiguity(text: str) -> MetricResult:
     if detect_hedge_expressions is None:
@@ -353,29 +351,24 @@ def score_ambiguity(text: str) -> MetricResult:
         feedback = feedback,
     )
 
-# ── ROLE04 영역 ──────────────────────────────────────────────
+
 
 _GRADE_TO_LEVEL = {"A": "높음", "B": "높음", "C": "주의", "D": "낮음"}
 
 
 def score_self_centered(text: str) -> MetricResult:
-    """결과중심 표현 비중 — self_detector(사전) + dependency_parser(의존 구문) 블렌딩.
-
-    score : contribution_score - self_score 를 0~100으로 정규화 (높을수록 기여 중심)
-    level : grade(A/B/C/D) 기반 — A/B=높음, C=주의, D=낮음
-    """
     if detect_self_language is None:
         return MetricResult("자기표현 차별성", 50, "주의", "self_detector 연결 실패.")
 
     result = detect_self_language(text)
 
-    # diff 기반 score: contribution - self 를 0~100 범위로 변환
-    # diff 범위 -100~+100 → (diff + 100) / 2 로 정규화
+
+
     diff = result["contribution_score"] - result["self_score"]
     dict_score = clamp(round((diff + 100) / 2))
 
-    # dependency_parser가 있으면 의존 구문 자기중심 비율을 40% 가중 합산
-    # dep_score는 self_ratio 기반(높을수록 자기중심) → diff 기반 점수와 방향 맞춤
+
+
     if dep_parse_paragraph is not None:
         try:
             dep = dep_parse_paragraph(text)
@@ -411,12 +404,12 @@ def score_self_centered(text: str) -> MetricResult:
     )
 
 
-# ── ROLE05 영역 ──────────────────────────────────────────────
+
 
 def _semantic_relevance(question: str, answer: str):
-    """ko-sroberta 코사인(질문↔답변) 0~100. 군집화용 모델 재사용. 실패 시 None."""
+
     try:
-        from models.role05_match.question_clusterer import get_sbert_model
+        from models.match.question_clusterer import get_sbert_model
         from sklearn.metrics.pairwise import cosine_similarity
         emb = get_sbert_model().encode([question, answer])
         cos = float(cosine_similarity([emb[0]], [emb[1]])[0][0])
@@ -442,7 +435,7 @@ def score_question_relevance(question: str, answer: str) -> MetricResult:
     result = detect_answer_relevance(question, answer)
     kw_score = result["score"]
 
-    # 하이브리드: 키워드 정밀도 + SBERT 의미 재현율 (SBERT 불가 시 키워드만)
+
     sem = _semantic_relevance(question, answer)
     score = clamp(round(0.4 * kw_score + 0.6 * sem)) if sem is not None else kw_score
 
@@ -455,7 +448,7 @@ def score_question_relevance(question: str, answer: str) -> MetricResult:
     )
 
 
-# ── 공통 유틸 ────────────────────────────────────────────────
+
 
 def count_keywords(text: str, keywords: List[str]) -> int:
     return sum(text.count(kw) for kw in keywords)
@@ -527,9 +520,6 @@ def build_improvements(metrics: Dict[str, MetricResult]) -> List[str]:
 
 
 def _role4_sentence_comment(sentence: str):
-    """ROLE4 기반 단일 문장 분석 → (comment, tag) 반환.
-    tag: "contrib" | "self" | None
-    """
     if detect_self_language is None:
         return None, None
 
@@ -568,10 +558,10 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
 
         has_number = bool(re.search(NUMBER_PATTERN, sentence))
 
-        # ── ROLE4: 기여 vs 자기중심 판단 ──────────────────────
+
         role4_comment, role4_tag = _role4_sentence_comment(sentence)
 
-        # ── ROLE5: 모호표현 탐지 ───────────────────────────────
+
         hedge_comment = None
         if detect_hedge_expressions is not None:
             hresult = detect_hedge_expressions(sentence)
@@ -582,19 +572,19 @@ def build_sentence_feedback(sentences: List[str]) -> List[Dict[str, str]]:
                 ]
                 hedge_comment = " / ".join(suggestions)
 
-        # ── 우선순위 결합 ──────────────────────────────────────
+
         if role4_tag == "contrib":
-            # 기여 표현 확인됨 — 모호표현이 함께 있으면 병기
+
             comment = role4_comment
             if hedge_comment:
                 comment += f"  |  {hedge_comment}"
             tag = "contrib"
         elif hedge_comment:
-            # 모호표현 경고 우선
+
             comment = hedge_comment
             tag = "hedge"
         elif role4_tag == "self":
-            # 자기중심 표현 개선 제안
+
             comment = role4_comment
             tag = "self"
         elif has_number:

@@ -1,19 +1,7 @@
-"""
-문항 적합성 게이트 임계값/하이브리드 가중치 데이터 기반 보정.
-
-라벨 데이터(role05_match_dummy_300.csv, manual_label: EXCELLENT/MEDIUM/OFF_TOPIC)에서
-- 하이브리드 가중치 w (score = w*keyword + (1-w)*SBERT코사인) 를 AUC로 선택
-- 게이트 임계값 T 를 Youden's J / F1 로 선택
-하여, OFF_TOPIC을 가장 잘 가르는 값을 출력한다.
-
-근거 방법론:
-- SBERT 코사인 의미 유사도 (Reimers & Gurevych, Sentence-BERT, EMNLP 2019)
-- 임계값은 라벨 데이터의 ROC 기반 Youden's J / F1 최적화로 결정(표준 컷오프 선택법)
-"""
-import sys, os, io
+﻿import sys, os, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "role05_match"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "match"))
 
 import numpy as np
 import pandas as pd
@@ -23,14 +11,14 @@ from sklearn.metrics.pairwise import cosine_similarity
 from relevance_detector import detect_answer_relevance
 from question_clusterer import get_sbert_model
 
-CSV = "data/labeled/role05_match/role05_match_dummy_300.csv"
+CSV = "data/labeled/match/match_labeled_300.csv"
 
 df = pd.read_csv(CSV, encoding="utf-8-sig").dropna(subset=["question", "answer", "manual_label"])
 print(f"라벨 데이터 {len(df)}행 / 라벨 분포:\n{df['manual_label'].value_counts().to_string()}\n")
 
 is_off = (df["manual_label"].str.upper() == "OFF_TOPIC").to_numpy()
 
-# 1) 점수 계산: 키워드 + SBERT 코사인
+
 print("점수 계산 중(키워드 + SBERT 인코딩)...")
 kw = np.array([detect_answer_relevance(q, a)["score"] for q, a in zip(df["question"], df["answer"])], dtype=float)
 
@@ -42,20 +30,20 @@ sem = np.array([float(cosine_similarity([q_emb[i]], [a_emb[i]])[0][0]) * 100 for
 print(f"  키워드 점수  평균: 온토픽 {kw[~is_off].mean():.1f} / OFF {kw[is_off].mean():.1f}")
 print(f"  SBERT 코사인 평균: 온토픽 {sem[~is_off].mean():.1f} / OFF {sem[is_off].mean():.1f}\n")
 
-# 2) 하이브리드 가중치 w 비교 (참고용 — 실제 배포 가중치는 변경하지 않음)
+
 print("=== 하이브리드 가중치 w (score = w*키워드 + (1-w)*SBERT) — 참고용 비교 ===")
-W_DEPLOYED = 0.4  # app/analyzer.py의 score_question_relevance 실제 배포값과 동일하게 유지
+W_DEPLOYED = 0.4
 best = (None, -1)
 for w in [round(x * 0.1, 1) for x in range(0, 11)]:
     h = w * kw + (1 - w) * sem
-    auc = roc_auc_score(is_off, -h)  # OFF가 양성, 점수 낮을수록 OFF
+    auc = roc_auc_score(is_off, -h)
     mark = "  ← 배포값" if w == W_DEPLOYED else ""
     print(f"  w={w:.1f}  AUC(OFF탐지)={auc:.4f}{mark}")
     if auc > best[1]:
         best = (w, auc)
 print(f"→ AUC 최댓값은 w={best[0]} 부근이지만, 배포 가중치(w={W_DEPLOYED})에서도 AUC={dict(zip([round(x*0.1,1) for x in range(11)], [roc_auc_score(is_off, -(w*kw+(1-w)*sem)) for w in [round(x*0.1,1) for x in range(11)]]))[W_DEPLOYED]:.4f}로 충분히 분리되므로, 가중치는 그대로 두고 임계값만 보정한다.\n")
 
-# 3) 게이트 임계값 T 보정 — 실제 배포 가중치(W_DEPLOYED) 기준
+
 hyb = W_DEPLOYED * kw + (1 - W_DEPLOYED) * sem
 print(f"=== 게이트 임계값 T 보정 (배포 가중치 w={W_DEPLOYED} 고정, hybrid < T → OFF 차단) ===")
 rows = []
@@ -63,8 +51,8 @@ for T in range(0, 101):
     pred_off = hyb < T
     TP = int((pred_off & is_off).sum()); FN = int((~pred_off & is_off).sum())
     TN = int((~pred_off & ~is_off).sum()); FP = int((pred_off & ~is_off).sum())
-    sens = TP / (TP + FN) if TP + FN else 0     # OFF 검출률(재현율)
-    spec = TN / (TN + FP) if TN + FP else 0     # 온토픽 통과율
+    sens = TP / (TP + FN) if TP + FN else 0
+    spec = TN / (TN + FP) if TN + FP else 0
     prec = TP / (TP + FP) if TP + FP else 0
     f1 = 2 * prec * sens / (prec + sens) if prec + sens else 0
     rows.append((T, sens, spec, sens + spec - 1, f1))
@@ -74,8 +62,8 @@ tied_j = [r[0] for r in rows if r[3] == best_j]
 t_j_lo, t_j_hi = min(tied_j), max(tied_j)
 print(f"  Youden's J 최댓값(={best_j:.3f})을 만족하는 T 구간: [{t_j_lo}, {t_j_hi}]  (이 구간 내 모든 T에서 OFF검출·온토픽통과 동률)")
 
-# 4) 최대 마진 임계값 — 두 그룹 점수 분포가 겹치지 않는 구간의 정중앙
-#    (라벨 데이터에서 분리 가능한 경우, 어떤 단일 T보다 분포 변동에 가장 강건한 선택)
+
+
 off_max = float(hyb[is_off].max())
 on_min = float(hyb[~is_off].min())
 if off_max < on_min:

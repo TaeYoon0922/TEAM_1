@@ -1,0 +1,263 @@
+import re
+from hedge_dict_v1 import HEDGE_EFFORT, HEDGE_QUANTIFIER, HEDGE_UNCERTAINTY
+from abstract_dict_v1 import ABSTRACT_TRAIT, ABSTRACT_GROWTH, EMOTION_VERB
+
+
+try:
+    from konlpy.tag import Okt
+    _okt = Okt()
+    KONLPY_AVAILABLE = True
+except Exception:
+    _okt = None
+    KONLPY_AVAILABLE = False
+
+
+STEM_HEDGE_DICT = {
+    "A_effort": {
+        "label": "노력·의지형",
+        "weight": 1.0,
+        "stems": ["노력", "열심히", "최선", "성실하다", "꾸준하다", "열정", "도전"],
+    },
+    "B_quantifier": {
+        "label": "양화 모호어",
+        "weight": 0.8,
+        "stems": ["어느정도", "수많다", "각종", "다양하다", "다수", "여러"],
+    },
+    "C_abstract": {
+        "label": "추상명사",
+        "weight": 1.2,
+        "stems": [
+            "성장하다", "자기개발",
+            "긍정적", "꼼꼼하다", "역량", "발전",
+            "소통", "리더십", "책임감", "적극",
+        ],
+    },
+    "D_emotion": {
+        "label": "감정·인식형 동사",
+        "weight": 1.0,
+        "stems": ["생각"],
+    },
+    "E_uncertainty": {
+        "label": "불확실성 표지어",
+        "weight": 1.5,
+        "stems": ["같다", "싶다"],
+    },
+}
+
+
+HEDGE_DICT = {
+    "A_effort":      {"label": "노력·의지형",   "weight": 1.0, "terms": HEDGE_EFFORT},
+    "B_quantifier":  {"label": "양화 모호어",   "weight": 0.8, "terms": HEDGE_QUANTIFIER},
+    "C_abstract":    {"label": "추상명사",      "weight": 1.2, "terms": ABSTRACT_TRAIT + ABSTRACT_GROWTH},
+    "D_emotion":     {"label": "감정·인식형 동사","weight": 1.2, "terms": EMOTION_VERB},
+    "E_uncertainty": {"label": "불확실성 표지어","weight": 1.5, "terms": HEDGE_UNCERTAINTY},
+}
+
+COLOR_MAP = {
+    "A_effort":      "#c084fc",
+    "B_quantifier":  "#6ee7b7",
+    "C_abstract":    "#fbbf24",
+    "D_emotion":     "#fb923c",
+    "E_uncertainty": "#f87171",
+}
+
+FEEDBACK_MAP = {
+
+    "노력":       "→ 노력의 결과물을 구체적으로 서술하세요",
+    "열심히":     "→ 수치나 기간으로 대체하세요",
+    "최선":       "→ 구체적 행동으로 대체하세요",
+    "성실하다":   "→ 행동 증거로 대체하세요",
+    "꾸준히":     "→ 기간과 횟수를 명시하세요",
+    "꾸준하다":   "→ 기간과 횟수를 명시하세요",
+    "열정":       "→ 어떤 열정인지 구체적 활동과 결과로 서술하세요",
+    "도전":       "→ 어떤 도전이었는지 상황과 결과를 구체화하세요",
+
+
+    "어느정도":   "→ 구체적 수치로 대체하세요",
+    "수많다":     "→ 개수를 명시하세요",
+    "각종":       "→ 종류를 나열하세요",
+    "다양하다":   "→ 구체적인 종류나 개수를 명시하세요",
+    "다수":       "→ 정확한 개수로 대체하세요",
+    "여러":       "→ 개수나 종류를 구체적으로 나열하세요",
+
+
+    "성장하다":   "→ 무엇이 얼마나 변했는지 수치로 서술하세요",
+    "자기개발":   "→ 구체적 학습 내용으로 대체하세요",
+    "긍정적":     "→ 구체적 태도 변화 사례로 대체하세요",
+    "꼼꼼하다":   "→ 행동 증거로 대체하세요",
+    "역량":       "→ 어떤 역량인지 구체화하세요",
+    "발전":       "→ 수치로 얼마나 발전했는지 서술하세요",
+    "소통":       "→ 구체적 방법과 결과를 함께 서술하세요",
+    "리더십":     "→ 어떤 역할로 어떤 결과를 냈는지 서술하세요",
+    "책임감":     "→ 책임진 과제와 그 결과를 구체적으로 서술하세요",
+    "적극":       "→ 어떻게 참여했는지 구체적 행동으로 서술하세요",
+
+
+    "생각":   "→ '~입니다'로 단정하세요",
+
+
+    "같다":       "→ '~했습니다 / ~입니다'로 단정하세요",
+    "싶다":       "→ '~하겠습니다'로 의지를 강하게 표현하세요",
+    "하고 싶":    "→ '~하겠습니다'로 의지를 강하게 표현하세요",
+    "것 같":      "→ '~했습니다 / ~입니다'로 단정하세요",
+    "깨달":       "→ 깨달음 이후 실제 행동으로 서술하세요",
+}
+
+
+def detect_hedge_expressions(text: str) -> dict:
+
+    hits = _find_hits(text)
+    hits = _deduplicate(hits)
+
+    score = _calc_score(text, hits)
+    grade, summary = _grade(score)
+
+    return {
+        "role":             "ROLE_03",
+        "metric":           "expression_clarity",
+        "score":            score,
+        "grade":            grade,
+        "summary":          summary,
+        "hit_count":        len(hits),
+        "hits":             hits,
+        "by_category":      _count_by_category(hits),
+        "highlighted_html": _build_highlight(text, hits),
+        "feedback_items":   _build_feedback(hits),
+        "clarity_label":    f"모호 표현 {len(hits)}개 발견",
+        "konlpy_used":      KONLPY_AVAILABLE,
+    }
+
+
+
+
+def _find_hits(text: str) -> list:
+    if KONLPY_AVAILABLE:
+        return _find_hits_konlpy(text)
+    return _find_hits_fallback(text)
+
+
+def _find_hits_konlpy(text: str) -> list:
+
+    hits = []
+    morphs = _okt.morphs(text, stem=True)
+
+    for cat_key, cat_info in STEM_HEDGE_DICT.items():
+        for stem in cat_info["stems"]:
+            if stem in morphs:
+                if stem.endswith("하다"):
+                    search_word = stem[:-2]
+                elif stem.endswith("다"):
+                    search_word = stem[:-1]
+                else:
+                    search_word = stem
+                if not search_word:
+                    search_word = stem
+                for m in re.finditer(re.escape(search_word), text):
+                    hits.append({
+                        "term":     stem,
+                        "category": cat_key,
+                        "label":    cat_info["label"],
+                        "weight":   cat_info["weight"],
+                        "start":    m.start(),
+                        "end":      m.end(),
+                    })
+
+    EXCEPTION_TERMS = {
+        "깨달":     ("D_emotion",    "감정·인식형 동사", 1.2),
+        "어느정도": ("B_quantifier", "양화 모호어",      0.8),
+        "긍정적":   ("C_abstract",   "추상명사",         1.2),
+    }
+    for term, (cat_key, label, weight) in EXCEPTION_TERMS.items():
+        for m in re.finditer(re.escape(term), text):
+            hits.append({
+                "term":     term,
+                "category": cat_key,
+                "label":    label,
+                "weight":   weight,
+                "start":    m.start(),
+                "end":      m.end(),
+            })
+
+    return hits
+
+
+def _find_hits_fallback(text: str) -> list:
+
+    hits = []
+    for cat_key, cat_info in HEDGE_DICT.items():
+        for term in cat_info["terms"]:
+            for m in re.finditer(re.escape(term), text):
+                hits.append({
+                    "term":     term,
+                    "category": cat_key,
+                    "label":    cat_info["label"],
+                    "weight":   cat_info["weight"],
+                    "start":    m.start(),
+                    "end":      m.end(),
+                })
+    return hits
+
+
+def _deduplicate(hits: list) -> list:
+    hits.sort(key=lambda x: (x["start"], -(x["end"] - x["start"])))
+    result, last_end = [], -1
+    for h in hits:
+        if h["start"] >= last_end:
+            result.append(h)
+            last_end = h["end"]
+    return result
+
+
+def _calc_score(text: str, hits: list) -> int:
+    token_count = max(len(text.split()), 1)
+    weighted_sum = sum(h["weight"] for h in hits)
+    weighted_density = weighted_sum / token_count
+    return max(0, min(100, round(100 - (weighted_density * 80))))
+
+
+def _grade(score: int) -> tuple:
+    if score >= 70:
+        return "A", "표현이 구체적이고 명확합니다."
+    elif score >= 50:
+        return "B", "일부 모호 표현이 있으나 전반적으로 양호합니다."
+    elif score >= 30:
+        return "C", "헤지 표현이 다수 발견됩니다. 구체화가 필요합니다."
+    else:
+        return "D", "대부분 문장이 모호합니다. 수치·행동 중심으로 재작성하세요."
+
+
+def _count_by_category(hits: list) -> dict:
+    counts = {k: 0 for k in STEM_HEDGE_DICT}
+    for h in hits:
+        counts[h["category"]] += 1
+    return counts
+
+
+def _build_highlight(text: str, hits: list) -> str:
+    result, prev = [], 0
+    for h in sorted(hits, key=lambda x: x["start"]):
+        result.append(text[prev:h["start"]])
+        color = COLOR_MAP.get(h["category"], "#e5e7eb")
+        result.append(
+            f'<mark style="background:{color};border-radius:3px;'
+            f'padding:1px 4px;" title="{h["label"]}">'
+            f'{text[h["start"]:h["end"]]}</mark>'
+        )
+        prev = h["end"]
+    result.append(text[prev:])
+    return "".join(result)
+
+
+def _build_feedback(hits: list) -> list:
+    feedbacks, seen = [], set()
+    for h in hits:
+        term = h["term"]
+        key = term if term in FEEDBACK_MAP else term.replace("하다", "").replace("다", "")
+        if key in FEEDBACK_MAP and term not in seen:
+            feedbacks.append({
+                "original":   term,
+                "category":   h["label"],
+                "suggestion": FEEDBACK_MAP[key],
+            })
+            seen.add(term)
+    return feedbacks

@@ -3,15 +3,15 @@ from pathlib import Path
 import sys
 import pandas as pd
 
-# Ensure project root is on sys.path so `app` package is importable when running from scripts/
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from importlib.util import spec_from_file_location, module_from_spec
 
-# Load Preprocessor class directly from app/preprocessing.py (works whether or not app is a package)
+
 app_dir = Path(__file__).resolve().parents[1] / "app"
 preproc_path = app_dir / "preprocessing.py"
 if not preproc_path.exists():
-    # fallback: find a python file in app/ that contains 'class Preprocessor'
+
     for p in app_dir.glob("*.py"):
         try:
             text = p.read_text(encoding="utf8")
@@ -67,13 +67,13 @@ def process_file(input_csv: Path, output_csv: Path, cols: list[str]):
         df[nouns_col] = df[col].map(apply_nouns)
         print(f"Processed column '{col}'")
 
-    # print progress every 500 rows
+
     total = len(df)
     for i, row in enumerate(df.itertuples(index=False), 1):
         if i % 500 == 0:
             print(f"Progress: {i}/{total} rows processed")
 
-    # Optionally join tokens into strings for easier downstream use
+
     for c in list(df.columns):
         if c.endswith("_tokens") or c.endswith("_nouns"):
             df[c + "_str"] = df[c].map(lambda lst: " ".join(lst) if isinstance(lst, list) else "")
@@ -104,15 +104,15 @@ from pathlib import Path
 import sys
 import pandas as pd
 
-# Ensure project root is on sys.path so `app` package is importable when running from scripts/
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from importlib.util import spec_from_file_location, module_from_spec
 
-# Load Preprocessor class directly from app/preprocessing.py (works whether or not app is a package)
+
 app_dir = Path(__file__).resolve().parents[1] / "app"
 preproc_path = app_dir / "preprocessing.py"
 if not preproc_path.exists():
-    # fallback: find a python file in app/ that contains 'class Preprocessor'
+
     for p in app_dir.glob("*.py"):
         try:
             text = p.read_text(encoding="utf8")
@@ -168,13 +168,13 @@ def process_file(input_csv: Path, output_csv: Path, cols: list[str]):
         df[nouns_col] = df[col].map(apply_nouns)
         print(f"Processed column '{col}'")
 
-    # print progress every 500 rows
+
     total = len(df)
     for i, row in enumerate(df.itertuples(index=False), 1):
         if i % 500 == 0:
             print(f"Progress: {i}/{total} rows processed")
 
-    # Optionally join tokens into strings for easier downstream use
+
     for c in list(df.columns):
         if c.endswith("_tokens") or c.endswith("_nouns"):
             df[c + "_str"] = df[c].map(lambda lst: " ".join(lst) if isinstance(lst, list) else "")

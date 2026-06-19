@@ -541,11 +541,11 @@ def render_assistant_message(result: AnalysisResult) -> None:
 
 
 def indicator_cards_html(result: AnalysisResult) -> str:
-    """7지표 피드백 카드 — 점수 없이 지표명·등급·피드백만 노출."""
+
     cards = []
     for metric in result.metrics.values():
         if not metric.applicable:
-            # 미연결 / 분석 보류 / 해당 없음 등 실제 상태를 그대로 노출(회색)
+
             label_txt = escape(metric.level) if metric.level else "해당 없음"
             level_html = f'<span class="ind-level ind-na">{label_txt}</span>'
         else:
@@ -564,7 +564,7 @@ def level_color(level: str) -> str:
         return "#10a37f"
     if level in ("보통", "주의", "분석 보류"):
         return "#f59e0b"
-    return "#dc2626"  # 보완 필요 / 낮음 / 분석 불가 등
+    return "#dc2626"
 
 
 def render_feedback(result: AnalysisResult) -> None:
